@@ -1,4 +1,4 @@
-# Deceased Estate Alerter — No-Code Product Blueprint
+# Estate Watch — No-Code Product Blueprint
 
 **Core differentiator:** Not a static estate database — users configure **alerts** (by surname, province, estate value band, asset type, executor status) and get **push/email/WhatsApp notified** the instant a matching deceased estate is officially reported.
 
