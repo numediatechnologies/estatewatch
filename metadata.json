@@ -1,0 +1,8 @@
+{
+  "name": "EstateWatch",
+  "description": "Alert-based monitoring and lead pipeline for South African deceased estate gazette notices",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
