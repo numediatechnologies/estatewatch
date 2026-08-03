@@ -1,0 +1,143 @@
+# Firecrawl configuration: EstateWatch Gazette harvest
+# Produce: PDF files + raw text extractions for 'deceased estate' notices
+# Usage: run Firecrawl with this config (or adapt to your Firecrawl instance)
+
+name: estatewatch-gazette-harvest
+description: |
+  Crawl official Government Gazette sources and aggregators to capture PDFs and structured "deceased estate" notices.
+  Output is JSONL with metadata and a pointer to downloaded PDF files. This config aims to avoid missing notices by
+  crawling multiple sources and using retries + content heuristics targeted at executor/estate notices.
+
+# Seed/start URLs (prioritise gov.za; fallback to gazettes.africa and Nuusflits/LegalNotice)
+start_urls:
+  - https://www.gov.za/documents/gazette
+  - https://gazettes.africa/search/?q=legal&ordering=-date&jurisdiction=South+Africa
+  - https://legalnotice.co.za/
+  - https://www.nuusflits.com/
+
+# Crawl behaviour
+concurrency: 4
+rate_limit: 0.5 # seconds between requests per domain
+user_agent: EstateWatchBot/1.0 (+https://marketdirect.co.za)
+max_depth: 4
+max_pages: 2000
+max_file_size_mb: 50
+
+# Scheduler (cron string) — weekly runs recommended, but can be daily for near-real-time detection
+schedule: "0 6 * * 1" # every Monday 06:00 server time (adjust as needed)
+
+# Link discovery and URL allow rules
+allow_patterns:
+  - ".*gazette.*\.pdf$"
+  - ".*government-gazette.*\.pdf$"
+  - ".*bulletin.*\.pdf$"
+  - ".*/documents/gazette.*"
+  - ".*legalnotice.*"
+deny_patterns:
+  - ".*\.(jpg|jpeg|png|gif)$"
+  - ".*facebook.com.*"
+
+# PDF handling: download PDF files and store locally or in cloud storage (set `storage` below)
+download_pdfs: true
+pdf_storage: ./data/pdf # relative to run directory; ensure writable
+
+# Extract basic page-level text using a lightweight text-extractor as soon as PDF is downloaded
+# This extraction is NOT OCR; it reads embedded PDF text layer if available
+pdf_text_extraction: true
+pdf_text_extractor: pdfminer # or "pdfjs" depending on runner capabilities
+
+# Heuristics to identify "deceased estate" / executor notices inside PDF text or HTML pages
+# These regexes are intentionally broad and should be refined with sample data
+notice_detection_regexes:
+  - "(?i)notice to creditors"
+  - "(?i)in the estate of"
+  - "(?i)boedel wyle"
+  - "(?i)creditors are hereby requested"
+  - "(?i)master's reference"
+  - "(?i)master of the high court"
+
+# If a PDF has no embedded text or text is very short/garbled, mark it for OCR
+# Criteria: extracted_text_word_count < 40 or contains many non-printable characters
+ocr_fallback_threshold_words: 40
+ocr_fallback: true
+ocr_provider: google_vision_pdf # options: google_vision_pdf, azure_form_recognizer, aws_textract, tesseract_service
+
+# Post-processing pipeline (applied in order)
+# 1. PDF embedded text extraction (fast, low-cost)
+# 2. OCR fallback when needed
+# 3. AI cleanup/field-extraction step to produce final structured JSON
+post_processing_pipeline:
+  - name: direct_text_extraction
+    type: extractor
+    description: "Read embedded text layer from PDF (preferred). Use pdf_text_extractor above."
+  - name: ocr_pdf
+    type: ocr
+    description: "If direct extraction fails or is below threshold, run OCR on the PDF pages."
+  - name: ai_cleanup
+    type: ai
+    description: "If OCR/text is still noisy, use an LLM to extract normalized fields. Return strict JSON (see schema)."
+    model: gpt-4.1-mini
+    prompt_guidelines: |
+      - Input: raw text from PDF (OCR or embedded text)
+      - Output: single-line JSON object with only the fields below (no extra text)
+      - Fields required: deceasedName, dateOfDeath, estateNumber, province, district, masterOffice, executorName, executorContact, executorEmail, hasPropertyAsset (true/false), estimatedValueBand, sourceUrl, sourcePdfPath
+
+# Output schema — each JSONL row should follow this shape
+output_schema:
+  id: string # unique id (hash of source URL + first 200 chars)
+  source: string # source domain (gov.za / gazettes.africa / legalnotice)
+  source_url: string
+  downloaded_pdf_path: string
+  page_count: integer
+  extracted_text: string # raw extracted text (post-direct extraction or OCR)
+  text_word_count: integer
+  detected_notices: # array of detection hits with snippet and position
+    - snippet: string
+      page: integer
+      match_regex: string
+  parsed_estate_records: # array of JSON objects from AI or rule-based extraction
+    - deceasedName: string
+      idNumberMasked: string
+      dateOfDeath: string
+      province: string
+      district: string
+      masterOffice: string
+      estateNumber: string
+      executorName: string
+      executorContact: string
+      executorEmail: string
+      hasPropertyAsset: boolean
+      estimatedValueBand: string
+      parsingMethod: string # direct_text | ocr | ai
+      parsingConfidence: number # 0-100
+  crawl_ts: timestamp
+
+# Output destination
+output:
+  type: jsonl
+  path: ./data/gazette-harvest.jsonl
+  rotate_daily: false
+
+# Deduplication: important to avoid missing a notice due to duplicate pages
+dedupe_by:
+  - source_url
+  - downloaded_pdf_hash
+
+# Error handling and retries
+retries: 3
+retry_backoff_seconds: 10
+
+# Notifications for failures or high-risk PDFs
+notify_if:
+  - event: page_fetch_failed
+    notify_to: ops@example.com
+  - event: ocr_failed
+    notify_to: ops@example.com
+
+# Notes and run checklist
+notes: |
+  - To avoid missing Gazette notices, run this across the official gov.za documents feed AND the gazettes.africa mirror. If either source temporarily blocks access or changes structure, the crawler will still find published PDFs via third-party aggregators and LegalNotice/Nuusflits.
+  - Carefully monitor the OCR fallback rate. If > 10% of harvested PDFs need OCR, consider adding Form Recognizer or improving PDF URL selection upstream.
+  - Store downloaded PDFs with a consistent folder layout and retention policy; mask or encrypt them if they contain personal data.
+
+# End of config
