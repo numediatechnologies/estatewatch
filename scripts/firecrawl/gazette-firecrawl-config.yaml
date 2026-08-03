@@ -8,12 +8,10 @@ description: |
   Output is JSONL with metadata and a pointer to downloaded PDF files. This config aims to avoid missing notices by
   crawling multiple sources and using retries + content heuristics targeted at executor/estate notices.
 
-# Seed/start URLs (prioritise gov.za; fallback to gazettes.africa and Nuusflits/LegalNotice)
+# Seed/start URLs — use gazettes.africa as the single canonical source for now
 start_urls:
-  - https://www.gov.za/documents/gazette
-  - https://gazettes.africa/search/?q=legal&ordering=-date&jurisdiction=South+Africa
-  - https://legalnotice.co.za/
-  - https://www.nuusflits.com/
+  - https://gazettes.africa/gazettes/za/
+  - https://gazettes.africa/search/?q=Legal+Gazette&ordering=-date&nature=Gazette&jurisdiction=South+Africa&year=2026
 
 # Crawl behaviour
 concurrency: 4
@@ -25,6 +23,24 @@ max_file_size_mb: 50
 
 # Scheduler (cron string) — weekly runs recommended, but can be daily for near-real-time detection
 schedule: "0 6 * * 1" # every Monday 06:00 server time (adjust as needed)
+
+# Scrape policy and backlog recommendation
+# Use the gazettes.africa search endpoint's `year` param to target specific years.
+# For initial MVP historical backfill: recommend scraping the last 5 years (configurable)
+# - MVP quick-start: last 2 years (smaller volume, faster validation)
+# - Recommended initial full backfill: last 5 years (balance of coverage vs cost)
+# - Long-term/archival: consider expanding to 10+ years if storage and matching needs require it
+scrape_policy:
+  backlog_years: 5 # change to 2 for a lighter MVP run, or 10+ for archival
+  initial_mode: "backfill_then_incremental" # options: backfill_then_incremental | incremental_only
+  backfill_batch_size: 1 # years per backfill iteration (1 = iterate year by year)
+  incremental:
+    cadence: daily
+    cron: "0 4 * * *" # daily 04:00 for incremental harvests
+  guidance: |
+    - Start with backlog_years (above) using the search URL with year=YYYY to iterate.
+    - After backfill completes, switch to incremental daily runs scanning the last 2 weeks with ordering=-date to catch new issues.
+    - Monitor harvested volume and OCR fallback rate; reduce backlog or increase concurrency accordingly.
 
 # Link discovery and URL allow rules
 allow_patterns:
@@ -136,8 +152,15 @@ notify_if:
 
 # Notes and run checklist
 notes: |
-  - To avoid missing Gazette notices, run this across the official gov.za documents feed AND the gazettes.africa mirror. If either source temporarily blocks access or changes structure, the crawler will still find published PDFs via third-party aggregators and LegalNotice/Nuusflits.
-  - Carefully monitor the OCR fallback rate. If > 10% of harvested PDFs need OCR, consider adding Form Recognizer or improving PDF URL selection upstream.
-  - Store downloaded PDFs with a consistent folder layout and retention policy; mask or encrypt them if they contain personal data.
+  - Source policy: gazettes.africa is the canonical source for this harvest run. The crawler seeds above use the gazettes.africa overview (/gazettes/za/) and the search endpoint (with `year` and `ordering` parameters) to enumerate issues and direct PDF downloads.
+  - How to enumerate years: use https://gazettes.africa/gazettes/za/ to discover available years and then iterate the search endpoint, e.g. https://gazettes.africa/search/?q=Legal+Gazette&ordering=-date&nature=Gazette&jurisdiction=South+Africa&year=YYYY for each year in the backlog range.
+  - Backlog recommendation: for MVP, run a 2-year backfill for fastest validation. For fuller historical coverage, set `scrape_policy.backlog_years` to 5. Archival needs may require 10+ years but expect higher storage and OCR costs.
+  - Run strategy:
+    1) Backfill mode: iterate year-by-year from (current_year - backlog_years + 1) to current_year using the search `year` param. Use small concurrency (concurrency: 4) and monitor rate limits.
+    2) Incremental mode: after backfill, run daily incremental jobs (see scrape_policy.incremental.cron) that target the most recent issues (ordering=-date) and pages added since last run.
+  - Monitor: track total PDFs harvested, unique parsed estate records, OCR fallback rate, and parsingConfidence distributions. If OCR fallback > 10–15% consider:
+    * tuning allow_patterns to avoid non-Gazette PDFs
+    * increasing PDF text-extractor robustness or adding an OCR provider with better PDF support (Google Vision / Azure)
+  - Privacy & storage: encrypt/downloaded PDFs at rest, mask ID numbers in outputs, and implement a retention policy (e.g., keep raw PDFs 90 days unless needed for disputes/audits).
 
 # End of config
