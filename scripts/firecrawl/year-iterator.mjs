@@ -19,7 +19,7 @@ function usage(){
 
 function parseArgs(){
   const args = process.argv.slice(2);
-  const out = { backlogYears: 5, discover: false, startYear: null, endYear: null, outPath: './data/gazette-urls.jsonl', runIngest: false, batchSize: 20 };
+  const out = { backlogYears: 5, discover: false, startYear: null, endYear: null, outPath: './data/gazette-urls.jsonl', runIngest: false, batchSize: 20, query: 'Legal Gazette', noNature: false };
   for(let i=0;i<args.length;i++){
     const a = args[i];
     if(a==='--backlog-years') out.backlogYears = Number(args[++i]);
@@ -29,6 +29,8 @@ function parseArgs(){
     else if(a==='--out') out.outPath = args[++i];
     else if(a==='--run-ingest') out.runIngest = true;
     else if(a==='--batch-size') out.batchSize = Number(args[++i]);
+    else if(a==='--query') out.query = args[++i];
+    else if(a==='--no-nature') out.noNature = true;
     else if(a==='--help' || a==='-h'){ usage(); process.exit(0); }
     else { console.warn('Unknown arg', a); usage(); process.exit(1); }
   }
@@ -75,13 +77,15 @@ function normalizePdfUrl(url){
   return null;
 }
 
-async function collectPdfLinksForYear(year){
+async function collectPdfLinksForYear(year, query, noNature=false){
   console.log(`Collecting PDF links for year ${year} ...`);
   const collected = new Set();
   let page = 1;
   const maxPages = 30; // safety cap
+  const qparam = encodeURIComponent(query || '');
   while(page <= maxPages){
-    const url = `${BASE}/search/?q=Legal+Gazette&ordering=-date&nature=Gazette&jurisdiction=South+Africa&year=${year}&page=${page}`;
+    const naturePart = noNature ? '' : '&nature=Gazette';
+    const url = `${BASE}/search/?q=${qparam}&ordering=-date${naturePart}&jurisdiction=South+Africa&year=${year}&page=${page}`;
     const html = await fetchText(url);
     if(!html){
       console.warn(`No HTML for ${url} (stopping pagination for year ${year})`);
@@ -115,7 +119,7 @@ async function collectPdfLinksForYear(year){
 }
 
 async function ensureDataDir(path){
-  const dir = path.replace(/\/g,'/').split('/').slice(0,-1).join('/') || '.';
+  const dir = path.replace(/\\/g, '/').split('/').slice(0,-1).join('/') || '.';
   if(!existsSync(dir)) mkdirSync(dir, { recursive: true });
 }
 
@@ -178,7 +182,7 @@ async function main(){
   const results = [];
 
   for(const y of years){
-    const urls = await collectPdfLinksForYear(y);
+    const urls = await collectPdfLinksForYear(y, opts.query, opts.noNature);
     for(const u of urls){
       if(!allUrls.has(u)){
         allUrls.add(u);
