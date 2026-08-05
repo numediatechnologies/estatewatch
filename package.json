@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 3000",
+    "dev": "concurrently \"npm run server\" \"vite --host 0.0.0.0 --port 3000\"",
+    "server": "tsx server/index.ts",
+    "db:init": "tsx server/initDb.ts",
     "build": "tsc && vite build",
     "lint": "tsc --noEmit",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
@@ -16,9 +18,14 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "clsx": "^2.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
     "firecrawl": "^1.21.1",
     "lucide-react": "^0.344.0",
     "motion": "^11.11.17",
+    "nodemailer": "^6.10.0",
+    "pg": "^8.13.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.2.1",
@@ -26,5 +33,14 @@
     "typescript": "^5.5.3",
     "vite": "^5.4.1",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "@types/nodemailer": "^6.4.17",
+    "@types/pg": "^8.11.10",
+    "concurrently": "^9.1.0",
+    "tsx": "^4.19.2"
   }
 }

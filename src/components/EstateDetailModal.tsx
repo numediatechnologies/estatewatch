@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DeceasedEstate, PipelineStage } from '../types';
+import { SendEmailModal } from './SendEmailModal';
 import { 
   X, 
   Building2, 
@@ -32,6 +33,7 @@ export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
   const [notes, setNotes] = React.useState('');
   const [stage, setStage] = React.useState<PipelineStage>('new');
   const [copied, setCopied] = React.useState(false);
+  const [showEmailModal, setShowEmailModal] = React.useState(false);
 
   const handleCopyNotice = () => {
     navigator.clipboard.writeText(
@@ -209,14 +211,24 @@ export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-3 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between">
-          <button
-            onClick={handleCopyNotice}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
-            {copied ? 'Copied Summary!' : 'Copy WhatsApp Summary'}
-          </button>
+        <div className="px-6 py-3 border-t border-slate-800 bg-slate-950/80 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopyNotice}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
+              {copied ? 'Copied Summary!' : 'Copy WhatsApp Summary'}
+            </button>
+
+            <button
+              onClick={() => setShowEmailModal(true)}
+              className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              Send Email Alert
+            </button>
+          </div>
           
           <button
             onClick={onClose}
@@ -227,6 +239,10 @@ export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
         </div>
 
       </div>
+
+      {showEmailModal && (
+        <SendEmailModal estate={estate} onClose={() => setShowEmailModal(false)} />
+      )}
     </div>
   );
 };

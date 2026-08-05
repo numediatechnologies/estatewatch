@@ -145,3 +145,25 @@ export interface UserProfile {
   planTier: 'free' | 'pro' | 'agency' | 'pay_per_lead';
   leadsRemaining?: number;
 }
+
+export type SystemRole = 'admin' | 'user';
+
+export interface UserAccount {
+  id: string;
+  email: string;
+  name: string;
+  role: SystemRole;
+  userPersona: UserRole;
+  avatarUrl?: string;
+}
+
+export interface ScraperPipelineResult {
+  sourceUrl?: string;
+  rawText: string;
+  extractionMethod: 'direct' | 'ocr' | 'ai_fallback';
+  ocrConfidence: number;
+  aiEnriched: boolean;
+  extractedEstate: DeceasedEstate;
+  pipelineLogs: string[];
+}
+
