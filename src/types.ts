@@ -113,6 +113,15 @@ export interface IngestionLog {
   status: 'completed' | 'processing' | 'flagged';
 }
 
+export interface GazetteIngestionSchedule {
+  enabled: boolean;
+  frequencyPerDay: number;
+  intervalHours: number;
+  lastRunAt: string;
+  nextRunAt: string;
+  recommendedCadence: string;
+}
+
 export interface NotificationEvent {
   id: string;
   alertId: string;
