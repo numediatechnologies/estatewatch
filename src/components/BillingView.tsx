@@ -28,7 +28,7 @@ export const BillingView: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-400">
-            Transparent South African ZAR pricing. Cancel or upgrade anytime via PayFast / Paystack.
+            Transparent South African ZAR pricing. Cancel or upgrade anytime via PayFast on tenders.marketdirect.co.za.
           </p>
         </div>
 
@@ -252,6 +252,9 @@ export const BillingView: React.FC = () => {
 
             <p className="text-xs text-slate-300">
               Selected Item: <strong className="text-amber-400">{selectedCheckoutPlan}</strong>
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Checkout will be routed through PayFast with secure ZAR settlement on tenders.marketdirect.co.za.
             </p>
 
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-xs">

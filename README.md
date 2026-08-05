@@ -96,14 +96,14 @@ Run this brief through both ChatGPT and Claude separately, then reconcile into o
 - `subscriptions` (id, user_id, plan, billing_cycle, status, next_bill_date)
 
 ### UI/UX Specification
+
 - Dashboard: active alerts summary + recent matches feed
 - Alert builder: step wizard, plain-language summary of the alert before saving
 - Estate feed: card list (mobile) / table (desktop), map toggle for location-based browsing
 - Notification centre: read/unread, channel icons
-- Billing: simple plan comparison + PayFast/Paystack checkout
+- Billing: simple plan comparison + PayFast checkout
 
-### Monetisation Logic
-| Tier | Price (indicative) | Includes |
+### Monetisation Logic| Tier | Price (indicative) | Includes |
 |---|---|---|
 | Free trial | R0 / 14 days | 1 alert, email only |
 | Pro | R699/mo | Unlimited alerts, all channels, export |
@@ -164,7 +164,8 @@ This product leans on automation more than most no-code builds, because the core
 - **AI parsing step** — feed each notice through Claude/GPT to extract structured fields (name, estate number, district, executor, date) from messy OCR/PDF text.
 - **Matching engine trigger** — run new estates against all active alert criteria.
 - **Notification dispatch** — WhatsApp Business API (or Twilio) for WhatsApp/SMS, SendGrid for email.
-- **Payments** — PayFast or Paystack (SA-native, avoids the cross-border card friction you hit with Uber's US-only connector).
+- **Payments** — PayFast (SA-native, avoids the cross-border card friction you hit with Uber's US-only connector).
+- **Email dispatch** — Resend for reliable professional delivery from tenders.marketdirect.co.za.
 - **CRM/pipeline sync** — push "won" leads into a lightweight CRM (or back into Google Sheets/Airtable if you want zero extra tooling for v1).
 
 **Output:** Fully automated notify-on-match pipeline, no manual intervention after setup.
