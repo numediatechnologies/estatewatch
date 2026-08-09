@@ -24,7 +24,7 @@ export async function recordMatches(
 ): Promise<DispatchedEvent[]> {
   const events: DispatchedEvent[] = [];
   for (const match of matches) {
-    const recipient = recipientOverride || match.recipientEmail || process.env.ESTATEWATCH_ALERT_EMAIL || '';
+    const recipient = recipientOverride || match.recipientEmail || '';
     const sentAt = new Date().toISOString().replace('T', ' ').substring(0, 16);
     const event: DispatchedEvent = {
       id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

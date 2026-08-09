@@ -60,10 +60,7 @@ application.use('/api/alerts', (req, res, next) => {
   next();
 }, alertsRouter);
 application.use('/api/pipeline', pipelineRouter);
-application.use('/api/notifications', (req, res, next) => {
-  if (req.method === 'POST') return requireAdmin(req, res, next);
-  next();
-}, notificationsRouter);
+application.use('/api/notifications', requireAdmin, notificationsRouter);
 
 application.post('/api/run-fetch', requireAdmin, async (req, res) => {
   try {

@@ -56,12 +56,18 @@ export function matchEstateToAlerts(estate: DeceasedEstate, alerts: AlertCriteri
       const reasons: string[] = [];
       let score = 0;
 
-      if (a.surnameMatch && surnameMatches(estate, a.surnameMatch)) {
+      if (a.surnameMatch) {
+        if (!surnameMatches(estate, a.surnameMatch)) {
+          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
+        }
         reasons.push(`Surname "${a.surnameMatch}"`);
         score += 40;
       }
 
-      if (a.provinces.length && a.provinces.includes(estate.province)) {
+      if (a.provinces.length) {
+        if (!a.provinces.includes(estate.province)) {
+          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
+        }
         reasons.push(`Province ${estate.province}`);
         score += 20;
       }

@@ -6,9 +6,10 @@ import { validate } from '../validate.js';
 
 export const notificationsRouter = Router();
 
-notificationsRouter.get('/', async (_req, res) => {
+notificationsRouter.get('/', async (req, res) => {
   try {
-    const result = await query('SELECT * FROM notifications ORDER BY sent_at DESC LIMIT 50;');
+    const alertId = typeof req.query.alertId === 'string' ? req.query.alertId : null;
+    const result = await query('SELECT * FROM notifications WHERE ($1::text IS NULL OR alert_id=$1) ORDER BY sent_at DESC LIMIT 2000;', [alertId]);
     res.json(
       result.rows.map((row) => ({
         id: row.id,
@@ -21,6 +22,9 @@ notificationsRouter.get('/', async (_req, res) => {
         sentAt: row.sent_at,
         status: row.status,
         recipient: row.recipient,
+        providerMessageId: row.provider_message_id,
+        attempts: row.attempts,
+        error: row.error,
       }))
     );
   } catch (err: any) {
