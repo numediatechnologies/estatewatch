@@ -6,11 +6,16 @@ import { recordMatches } from './notifications.js';
 import type { AlertCriteria, DeceasedEstate } from './types.js';
 import { emptyIngestResult, type IngestResult } from './ingestTypes.js';
 
-export async function runIngestion(): Promise<IngestResult> {
+export async function runIngestion(options: { sourceUrls?: string[] } = {}): Promise<IngestResult> {
   const result = emptyIngestResult();
   let gazettes: GazetteItem[];
   try {
     gazettes = (await discoverGazettes(createFirecrawlClient(), { maxPages: 1 })).gazettes;
+    if (options.sourceUrls?.length) {
+      const requested = new Set(options.sourceUrls);
+      gazettes = gazettes.filter((gazette) => requested.has(gazette.downloadUrl));
+      if (!gazettes.length) throw new Error('None of the requested source URLs were found in current J193 discovery');
+    }
   } catch (error: any) {
     result.status = 'flagged'; result.errors.push({ url: 'discovery', error: error.message }); return result;
   }

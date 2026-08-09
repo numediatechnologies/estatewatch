@@ -77,9 +77,10 @@ application.post('/api/run-fetch', requireAdmin, async (req, res) => {
   }
 });
 
-application.post('/api/ingest-gazettes', requireAdmin, async (_req, res) => {
+application.post('/api/ingest-gazettes', requireAdmin, async (req, res) => {
   try {
-    const result = await dependencies.ingest();
+    const sourceUrls = Array.isArray(req.body?.sourceUrls) ? req.body.sourceUrls.filter((url: unknown) => typeof url === 'string') : undefined;
+    const result = await dependencies.ingest({ sourceUrls });
     res.status(result.status === 'completed' ? 200 : 502).json({ success: result.status === 'completed', data: result });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
