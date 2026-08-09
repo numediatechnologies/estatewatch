@@ -6,6 +6,8 @@ export interface AdminSettings {
   notificationEmail: string;
   adminEmail: string;
   resendConfigured: boolean;
+  zeptomailConfigured: boolean;
+  emailProvider: string;
   neonAuthConfigured: boolean;
 }
 

@@ -67,6 +67,8 @@ export const AdminSettingsView: React.FC = () => {
         <div className="space-y-2 text-xs">
           <div className="flex items-center justify-between"><span className="text-slate-400">Neon Auth configured</span><span className={settings?.neonAuthConfigured ? 'text-emerald-400' : 'text-rose-400'}>{settings?.neonAuthConfigured ? 'Yes' : 'No'}</span></div>
           <div className="flex items-center justify-between"><span className="text-slate-400">Resend configured</span><span className={settings?.resendConfigured ? 'text-emerald-400' : 'text-rose-400'}>{settings?.resendConfigured ? 'Yes' : 'No'}</span></div>
+          <div className="flex items-center justify-between"><span className="text-slate-400">ZeptoMail configured</span><span className={settings?.zeptomailConfigured ? 'text-emerald-400' : 'text-rose-400'}>{settings?.zeptomailConfigured ? 'Yes' : 'No'}</span></div>
+          <div className="flex items-center justify-between"><span className="text-slate-400">Provider mode</span><span className="text-slate-200">{settings?.emailProvider || 'auto'}</span></div>
           <div className="flex items-center justify-between"><span className="text-slate-400">Admin login email</span><span className="text-slate-200">{settings?.adminEmail || 'Not configured'}</span></div>
         </div>
         <div className="border-t border-slate-800 pt-4 space-y-2">
@@ -75,7 +77,7 @@ export const AdminSettingsView: React.FC = () => {
           </label>
           <button type="button" onClick={() => void sendTest()} className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 flex items-center gap-2"><Send className="w-4 h-4 text-amber-400" />Send test email</button>
         </div>
-        <div className="text-[11px] text-slate-500 flex items-start gap-2"><ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />If this test arrives but registration emails do not, the issue is in Neon Auth email delivery rather than EstateWatch operational email.</div>
+          <div className="text-[11px] text-slate-500 flex items-start gap-2"><ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />These providers are for transactional EstateWatch email only. Registration, verification, and password-reset emails are handled separately by Neon Auth.</div>
       </div>
     </div>
     {message && <p role="status" className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />{message}</p>}

@@ -1,4 +1,8 @@
 import { Resend } from 'resend';
+import { SendMailClient } from 'zeptomail';
+
+// Resend and ZeptoMail are restricted to EstateWatch transactional/operational
+// messages. Authentication verification and password-reset emails stay with Neon Auth.
 
 export interface EmailParams {
   to: string; subject: string; estateId: string; estateName: string; estateNumber: string; province: string; district: string;
@@ -33,66 +37,112 @@ export function renderEstateAlertEmail(params: EmailParams) {
   return { html, text };
 }
 
-export async function sendEstateAlertEmail(params: EmailParams) {
-  if (!process.env.RESEND_API_KEY) return { success: false, error: 'RESEND_API_KEY not configured' };
-  const content = renderEstateAlertEmail(params);
+type EmailProvider = 'resend' | 'zeptomail';
+type Message = { from?: string; to: string; subject: string; html: string; text: string; replyTo?: string };
+type EmailResult =
+  | { success: true; provider: EmailProvider; messageId?: string; recipient: string }
+  | { success: false; error: string };
+
+function configuredProviders() {
+  const forced = (process.env.EMAIL_PROVIDER || 'auto').toLowerCase();
+  const resendConfigured = Boolean(process.env.RESEND_API_KEY);
+  const zeptomailConfigured = Boolean(process.env.ZEPTOMAIL_TOKEN);
+  if (forced === 'resend') return resendConfigured ? (['resend'] as EmailProvider[]) : [];
+  if (forced === 'zeptomail') return zeptomailConfigured ? (['zeptomail'] as EmailProvider[]) : [];
+  return [
+    ...(resendConfigured ? (['resend'] as EmailProvider[]) : []),
+    ...(zeptomailConfigured ? (['zeptomail'] as EmailProvider[]) : []),
+  ];
+}
+
+function splitSender(value: string) {
+  const match = value.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  return match ? { name: match[1] || 'EstateWatch', address: match[2] } : { name: 'EstateWatch', address: value.trim() };
+}
+
+async function sendWithResend(message: Message) {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { data, error } = await resend.emails.send({
-    from: process.env.RESEND_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>',
-    to: [params.to], subject: params.subject, html: content.html, text: content.text,
-    headers: { 'X-Entity-Ref-ID': `${params.estateNumber}-${Date.now()}` },
+    from: message.from || process.env.RESEND_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>',
+    to: [message.to], subject: message.subject, html: message.html, text: message.text,
+    ...(message.replyTo ? { replyTo: message.replyTo } : {}),
   });
-  if (error) return { success: false, error: error.message };
-  return { success: true, messageId: data?.id, recipient: params.to };
+  if (error) throw new Error(error.message);
+  return { messageId: data?.id };
+}
+
+async function sendWithZeptoMail(message: Message) {
+  const sender = splitSender(message.from || process.env.ZEPTOMAIL_FROM || 'noreply@marketdirect.co.za');
+  const client = new SendMailClient({ url: 'https://api.zeptomail.com/v1.1/email', token: process.env.ZEPTOMAIL_TOKEN as string });
+  const response = await client.sendMail({
+    from: sender,
+    to: [{ email_address: { address: message.to, name: message.to.split('@')[0] } }],
+    ...(message.replyTo ? { reply_to: [{ address: message.replyTo, name: 'Reply' }] } : {}),
+    subject: message.subject, htmlbody: message.html, textbody: message.text,
+  });
+  const responseRecord = response as { request_id?: string; message_id?: string; data?: { message_id?: string } };
+  return { messageId: responseRecord.request_id || responseRecord.message_id || responseRecord.data?.message_id };
+}
+
+async function sendEmail(message: Message): Promise<EmailResult> {
+  const providers = configuredProviders();
+  if (!providers.length) return { success: false, error: 'No email provider is configured. Set RESEND_API_KEY or ZEPTOMAIL_TOKEN.' };
+  const errors: string[] = [];
+  for (const provider of providers) {
+    try {
+      const result = provider === 'resend' ? await sendWithResend(message) : await sendWithZeptoMail(message);
+      return { success: true, provider, ...result, recipient: message.to };
+    } catch (error: any) {
+      errors.push(`${provider}: ${error?.message || String(error)}`);
+      console.error(`Email delivery failed via ${provider}:`, error);
+    }
+  }
+  return { success: false, error: errors.join(' | ') };
+}
+
+function defaultSender() {
+  return process.env.EMAIL_FROM || process.env.RESEND_FROM || process.env.ZEPTOMAIL_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>';
+}
+
+export async function sendEstateAlertEmail(params: EmailParams) {
+  const content = renderEstateAlertEmail(params);
+  return sendEmail({ from: defaultSender(), to: params.to, subject: params.subject, html: content.html, text: content.text });
 }
 
 export async function sendIngestionFailureEmail(errorMessage: string) {
   const to = process.env.INGESTION_INCIDENT_EMAIL || process.env.ADMIN_EMAIL;
   if (!to) return { success: false, error: 'INGESTION_INCIDENT_EMAIL or ADMIN_EMAIL not configured' };
-  if (!process.env.RESEND_API_KEY) return { success: false, error: 'RESEND_API_KEY not configured' };
   const occurredAt = new Date().toISOString();
   const dashboardUrl = process.env.APP_URL || 'https://estatewatch.marketdirect.co.za';
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const { data, error } = await resend.emails.send({
-    from: process.env.RESEND_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>', to: [to],
+  const result = await sendEmail({
+    from: defaultSender(), to,
     subject: 'Action needed: EstateWatch Gazette run failed',
     html: `<!doctype html><html><body style="font-family:Arial,sans-serif;background:#f1f5f9;padding:24px;color:#0f172a"><div style="max-width:620px;margin:auto;background:white;border-radius:14px;padding:28px"><div style="color:#b45309;font-weight:700">MARKETDIRECT.CO.ZA · ESTATEWATCH</div><h1 style="font-size:24px">Gazette check needs attention</h1><p>The scheduled Gazette run could not complete. No partial or invented estate records were published.</p><div style="background:#f8fafc;border-left:4px solid #dc2626;padding:14px;margin:20px 0"><strong>Technical detail</strong><br>${escapeHtml(errorMessage)}</div><p><strong>Time:</strong> ${escapeHtml(occurredAt)}</p><p>The next scheduled run will retry safely. An administrator can also run a protected discovery check.</p><a href="${escapeHtml(dashboardUrl)}" style="display:inline-block;background:#f59e0b;color:#0f172a;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:9px">Open EstateWatch</a></div></body></html>`,
     text: `EstateWatch Gazette check needs attention\n\nThe scheduled run could not complete. No partial or invented records were published.\n\nTechnical detail: ${errorMessage}\nTime: ${occurredAt}\n\nThe next scheduled run will retry safely.\n${dashboardUrl}`,
   });
-  if (error) return { success: false, error: error.message };
-  return { success: true, messageId: data?.id, recipient: to };
+  return result;
 }
 
 export async function sendTestEmail(to: string) {
-  if (!process.env.RESEND_API_KEY) return { success: false, error: 'RESEND_API_KEY not configured' };
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const from = process.env.RESEND_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>';
-  const { data, error } = await resend.emails.send({
-    from,
-    to: [to],
+  const from = defaultSender();
+  return sendEmail({ from, to,
     subject: 'EstateWatch delivery test',
     html: '<!doctype html><html><body style="font-family:Arial,sans-serif;color:#0f172a"><h1>EstateWatch delivery test</h1><p>This confirms that operational email delivery is working.</p><p>Authentication verification and password-reset emails are handled separately by Neon Auth.</p></body></html>',
     text: 'EstateWatch delivery test\n\nThis confirms that operational email delivery is working. Authentication verification and password-reset emails are handled separately by Neon Auth.',
   });
-  if (error) return { success: false, error: error.message };
-  return { success: true, messageId: data?.id, recipient: to };
 }
 
 export async function sendContactMessage(params: { name: string; company?: string; email: string; phone?: string; enquiry: string; message: string }) {
-  if (!process.env.RESEND_API_KEY) return { success: false, error: 'RESEND_API_KEY not configured' };
   const recipient = 'sales@marketdirect.co.za';
-  const resend = new Resend(process.env.RESEND_API_KEY);
   const safe = (value: string) => escapeHtml(value || 'Not provided');
   const html = `<h2>New EstateWatch contact request</h2><p><strong>Name:</strong> ${safe(params.name)}</p><p><strong>Company:</strong> ${safe(params.company || '')}</p><p><strong>Email:</strong> ${safe(params.email)}</p><p><strong>Phone:</strong> ${safe(params.phone || '')}</p><p><strong>Enquiry:</strong> ${safe(params.enquiry)}</p><p><strong>Message:</strong><br>${safe(params.message).replace(/\n/g, '<br>')}</p>`;
   const text = `New EstateWatch contact request\n\nName: ${params.name}\nCompany: ${params.company || 'Not provided'}\nEmail: ${params.email}\nPhone: ${params.phone || 'Not provided'}\nEnquiry: ${params.enquiry}\n\nMessage:\n${params.message}`;
-  const { data, error } = await resend.emails.send({
-    from: process.env.RESEND_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>',
-    to: [recipient],
+  return sendEmail({
+    from: defaultSender(),
+    to: recipient,
     replyTo: params.email,
     subject: `EstateWatch contact request: ${params.enquiry}`,
     html,
     text,
   });
-  if (error) return { success: false, error: error.message };
-  return { success: true, messageId: data?.id, recipient };
 }
