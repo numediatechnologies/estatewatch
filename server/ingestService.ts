@@ -8,6 +8,12 @@ import { emptyIngestResult, type IngestResult } from './ingestTypes.js';
 import { randomUUID } from 'node:crypto';
 
 async function acquireIngestionLease(runId: string): Promise<boolean> {
+  await query(`CREATE TABLE IF NOT EXISTS ingestion_locks (
+    name VARCHAR(100) PRIMARY KEY,
+    run_id UUID NOT NULL,
+    locked_until TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
   const lease = await query(`INSERT INTO ingestion_locks(name,run_id,locked_until) VALUES('gazette-ingestion',$1,NOW()+INTERVAL '25 minutes')
     ON CONFLICT(name) DO UPDATE SET run_id=EXCLUDED.run_id,locked_until=EXCLUDED.locked_until
     WHERE ingestion_locks.locked_until < NOW() RETURNING run_id`, [runId]);
