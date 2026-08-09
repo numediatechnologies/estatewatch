@@ -28,6 +28,8 @@ EstateWatch discovers South African Government Gazette J193 issues, extracts gen
 6. Valid records are stored, matched against active surname/province alerts, and sent through Resend.
 7. Unique issue, estate-source, and alert/estate/channel constraints make reruns idempotent.
 
+Vercel Cron is the only production scheduler. Do not add a second GitHub Actions, Make.com or external scraping schedule: duplicate schedulers waste credits, create noisy failures and can overlap ingestion runs. GitHub Actions may still run offline tests, but it must not trigger Gazette discovery or ingestion.
+
 Gazette notices do not reliably state estate value, asset type, property ownership, or later executor workflow status. EstateWatch therefore returns `Unknown` for unsupported enrichment and does not advertise WhatsApp delivery. OCR and manual review are future additions for image-only or uncertain notices.
 
 ## Requirements
