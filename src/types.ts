@@ -18,6 +18,7 @@ export type Province =
   | 'Northern Cape';
 
 export type EstateValueBand = 
+  | 'Unknown'
   | '< R250,000' 
   | 'R250,000 - R1,000,000' 
   | 'R1,000,000 - R5,000,000' 
@@ -166,4 +167,3 @@ export interface ScraperPipelineResult {
   extractedEstate: DeceasedEstate;
   pipelineLogs: string[];
 }
-

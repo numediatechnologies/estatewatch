@@ -61,6 +61,7 @@ export async function sendEstateAlertEmail(params: EmailParams) {
 
     const fromAddress = process.env.SMTP_FROM || '"EstateWatch Alerts" <alerts@estatewatch.co.za>';
 
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -126,7 +127,7 @@ export async function sendEstateAlertEmail(params: EmailParams) {
             </div>
 
             <div style="text-align: center; margin-top: 24px;">
-              <a href="http://localhost:3000" class="btn">View & Claim in EstateWatch Lead Pipeline</a>
+              <a href="${appUrl}" class="btn">View & Claim in EstateWatch Lead Pipeline</a>
             </div>
           </div>
           <div class="footer">

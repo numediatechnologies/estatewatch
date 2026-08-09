@@ -32,6 +32,8 @@ export async function initializeDatabase() {
         property_details TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE UNIQUE INDEX IF NOT EXISTS estates_estate_number_unique ON estates (estate_number);
+      CREATE UNIQUE INDEX IF NOT EXISTS estates_source_id_unique ON estates (source_id);
     `);
 
     // 2. Alerts Table
@@ -100,7 +102,7 @@ export async function initializeDatabase() {
 
     // Seed Data if Estates table is empty
     const { rowCount } = await query('SELECT id FROM estates LIMIT 1;');
-    if (rowCount === 0) {
+    if (rowCount === 0 && process.env.SEED_DEMO_DATA === 'true' && process.env.NODE_ENV !== 'production') {
       console.log('🌱 Database is empty. Seeding initial South African deceased estate records...');
 
       // Seed Estates

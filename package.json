@@ -3,16 +3,20 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": { "node": ">=22.0.0" },
   "scripts": {
     "dev": "concurrently \"npm run server\" \"vite --host 0.0.0.0 --port 3000\"",
     "server": "tsx server/index.ts",
     "db:init": "tsx server/initDb.ts",
     "build": "tsc && vite build",
     "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:firecrawl:live": "tsx scripts/test-firecrawl-live.ts",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
-    "fetch-gazettes": "node scripts/firecrawl-fetch.mjs"
+    "fetch-gazettes": "tsx scripts/firecrawl-fetch.ts"
   },
   "dependencies": {
+    "@google-cloud/documentai": "^9.6.2",
     "@tailwindcss/vite": "^4.0.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
@@ -21,7 +25,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "firecrawl": "^1.21.1",
+    "firecrawl": "4.32.0",
     "lucide-react": "^0.344.0",
     "motion": "^11.11.17",
     "nodemailer": "^6.10.0",
@@ -40,7 +44,10 @@
     "@types/node": "^22.10.2",
     "@types/nodemailer": "^6.4.17",
     "@types/pg": "^8.11.10",
+    "@types/supertest": "^7.2.1",
     "concurrently": "^9.1.0",
-    "tsx": "^4.19.2"
+    "supertest": "^7.2.2",
+    "tsx": "^4.19.2",
+    "vitest": "^4.1.10"
   }
 }
