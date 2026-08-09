@@ -23,11 +23,14 @@ describe('application authentication', () => {
 
   it('registers through Neon and persists the administrator role server-side', async () => {
     process.env.NEON_AUTH_BASE_URL = 'https://auth.example.test';
+    process.env.APP_URL = 'https://estatewatch.marketdirect.co.za/';
     process.env.ADMIN_EMAIL = 'support@marketdirecto.co.za';
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ user: { id: 'neon-admin', email: 'support@marketdirecto.co.za', name: 'Support' } }), { status: 200, headers: { 'content-type': 'application/json' } })));
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ user: { id: 'neon-admin', email: 'support@marketdirecto.co.za', name: 'Support' } }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
     queryMock.mockResolvedValue({ rowCount: 1 });
     const result = await authenticateWithNeon('sign-up', { name: 'Support', email: 'support@marketdirecto.co.za', password: 'valid-password' });
     expect(result.role).toBe('admin');
+    expect(fetchMock).toHaveBeenCalledWith('https://auth.example.test/sign-up/email', expect.objectContaining({ headers: expect.objectContaining({ origin: 'https://estatewatch.marketdirect.co.za' }) }));
     expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('user_profiles'), expect.arrayContaining(['admin']));
   });
 });

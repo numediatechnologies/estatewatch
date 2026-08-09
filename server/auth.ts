@@ -59,12 +59,12 @@ export function clearSessionCookie(res: Response) {
 export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string }) {
   const baseUrl = process.env.NEON_AUTH_BASE_URL?.replace(/\/$/, '');
   if (!baseUrl) throw new Error('NEON_AUTH_BASE_URL is required');
-  // This request originates from our trusted API, not the browser. Forwarding the
-  // public app Origin makes Neon Auth apply its browser trusted-origin allowlist
-  // and rejects otherwise valid server-to-server sign-ins on custom domains.
+  // Neon validates browser-style auth requests against its trusted-origin list.
+  // URL.origin removes paths and trailing slashes, which are invalid in Origin.
+  const origin = new URL(process.env.APP_URL || 'http://localhost:3000').origin;
   const response = await fetch(`${baseUrl}/${mode}/email`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', origin },
     body: JSON.stringify(body),
   });
   const result: any = await response.json().catch(() => ({}));
