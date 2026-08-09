@@ -11,6 +11,16 @@ const discovery: DiscoveryResult = {
 };
 
 describe('Firecrawl API', () => {
+  it('protects Firecrawl endpoints when an admin token is configured', async () => {
+    const previous = process.env.ADMIN_API_TOKEN;
+    process.env.ADMIN_API_TOKEN = 'test-secret';
+    const app = createApp({ discover: vi.fn(), createClient: () => ({}) as AgentClient, ingest: vi.fn() });
+    expect((await request(app).post('/api/run-fetch')).status).toBe(401);
+    expect((await request(app).post('/api/ingest-gazettes')).status).toBe(401);
+    if (previous === undefined) delete process.env.ADMIN_API_TOKEN;
+    else process.env.ADMIN_API_TOKEN = previous;
+  });
+
   it('returns the normalized discovery contract', async () => {
     const app = createApp({ discover: vi.fn().mockResolvedValue(discovery), createClient: () => ({}) as AgentClient, ingest: vi.fn() });
     const response = await request(app).post('/api/run-fetch').send({ maxPages: 1 });
