@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.0.0" },
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "concurrently \"npm run server\" \"vite --host 0.0.0.0 --port 3000\"",
     "server": "tsx server/index.ts",
@@ -28,21 +30,21 @@
     "firecrawl": "4.32.0",
     "lucide-react": "^0.344.0",
     "motion": "^11.11.17",
-    "nodemailer": "^6.10.0",
+    "pdfjs-dist": "^6.2.108",
     "pg": "^8.13.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "resend": "^6.18.1",
     "tailwind-merge": "^2.2.1",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.5.3",
-    "vite": "^5.4.1",
+    "vite": "6.4.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.2",
-    "@types/nodemailer": "^6.4.17",
     "@types/pg": "^8.11.10",
     "@types/supertest": "^7.2.1",
     "concurrently": "^9.1.0",

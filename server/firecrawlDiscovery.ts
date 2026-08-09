@@ -51,8 +51,13 @@ export function parseGazetteSearchMarkdown(markdown: string): Array<z.infer<type
   const pattern = /\[(South Africa Government Gazette Legal Notices A dated (\d{4}-\d{2}-\d{2})[^\]]*)\]\((https:\/\/gazettes\.africa\/akn\/za\/officialGazette\/[^)]+)\)/g;
   const results: Array<z.infer<typeof gazetteItemSchema>> = [];
   for (const match of markdown.matchAll(pattern)) {
-    const detailUrl = match[3].replace(/#.*$/, '').replace(/\/$/, '');
-    results.push({ title: match[1], datePublished: match[2], downloadUrl: `${detailUrl}/source` });
+    const numberMatch = match[1].match(/number\s+(.+)$/i)?.[1].toLowerCase().replace(/\s+/g, '-');
+    if (!numberMatch) continue;
+    results.push({
+      title: match[1],
+      datePublished: match[2],
+      downloadUrl: `https://archive.gazettes.africa/archive/za/${match[2].slice(0, 4)}/za-government-gazette-legal-notices-a-dated-${match[2]}-no-${numberMatch}.pdf`,
+    });
   }
   return results;
 }

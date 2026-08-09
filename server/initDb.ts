@@ -34,6 +34,15 @@ export async function initializeDatabase() {
       );
       CREATE UNIQUE INDEX IF NOT EXISTS estates_estate_number_unique ON estates (estate_number);
       CREATE UNIQUE INDEX IF NOT EXISTS estates_source_id_unique ON estates (source_id);
+      ALTER TABLE estates ADD COLUMN IF NOT EXISTS date_of_birth VARCHAR(50);
+      ALTER TABLE estates ADD COLUMN IF NOT EXISTS last_address TEXT;
+      ALTER TABLE estates ADD COLUMN IF NOT EXISTS spouse_details TEXT;
+      ALTER TABLE estates ADD COLUMN IF NOT EXISTS executor_address TEXT;
+      ALTER TABLE estates ADD COLUMN IF NOT EXISTS claim_period_days INT;
+      ALTER TABLE estates ADD COLUMN IF NOT EXISTS gazette_number VARCHAR(100);
+      ALTER TABLE estates ADD COLUMN IF NOT EXISTS gazette_page INT;
+      ALTER TABLE estates ADD COLUMN IF NOT EXISTS source_url TEXT;
+      ALTER TABLE estates ADD COLUMN IF NOT EXISTS parser_version VARCHAR(50);
     `);
 
     // 2. Alerts Table
@@ -53,6 +62,9 @@ export async function initializeDatabase() {
         last_triggered VARCHAR(50),
         created_at VARCHAR(50)
       );
+      ALTER TABLE alerts ADD COLUMN IF NOT EXISTS owner_id VARCHAR(255);
+      ALTER TABLE alerts ADD COLUMN IF NOT EXISTS owner_name VARCHAR(255);
+      ALTER TABLE alerts ADD COLUMN IF NOT EXISTS recipient_email VARCHAR(255);
     `);
 
     // 3. Pipeline Table
@@ -82,6 +94,29 @@ export async function initializeDatabase() {
         sent_at VARCHAR(50),
         status VARCHAR(50),
         recipient VARCHAR(255)
+      );
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS provider_message_id VARCHAR(255);
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS attempts INT DEFAULT 0;
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS error TEXT;
+      CREATE UNIQUE INDEX IF NOT EXISTS notifications_alert_estate_channel_unique ON notifications (alert_id, estate_id, channel);
+      CREATE TABLE IF NOT EXISTS gazette_issues (
+        id VARCHAR(100) PRIMARY KEY,
+        title TEXT NOT NULL,
+        published_date VARCHAR(50) NOT NULL,
+        source_url TEXT NOT NULL UNIQUE,
+        status VARCHAR(50) NOT NULL DEFAULT 'queued',
+        records_accepted INT DEFAULT 0,
+        records_rejected INT DEFAULT 0,
+        error TEXT,
+        processed_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS user_profiles (
+        auth_subject VARCHAR(255) PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        display_name VARCHAR(255),
+        role VARCHAR(30) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
 

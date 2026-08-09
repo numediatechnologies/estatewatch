@@ -9,6 +9,7 @@ import { pipelineRouter } from './routes/pipeline.js';
 import { createFirecrawlClient, discoverGazettes } from './firecrawlDiscovery.js';
 import { runIngestion } from './ingestService.js';
 import { query } from './db.js';
+import { initializeDatabase } from './initDb.js';
 
 dotenv.config();
 
@@ -28,6 +29,12 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+function requireCron(req: Request, res: Response, next: NextFunction) {
+  if (!process.env.CRON_SECRET) return res.status(503).json({ error: 'CRON_SECRET is required' });
+  if (req.header('authorization') !== `Bearer ${process.env.CRON_SECRET}`) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+}
+
 export function createApp(dependencies: AppDependencies = {
   discover: discoverGazettes,
   createClient: createFirecrawlClient,
@@ -42,13 +49,16 @@ application.get('/api/health', async (_req, res) => {
   }
   try {
     await query('SELECT 1');
-    res.json({ status: 'ok', database: 'connected' });
+    res.json({ status: 'ok', database: 'connected', version: process.env.VERCEL_GIT_COMMIT_SHA || process.env.npm_package_version || 'local' });
   } catch {
     res.status(503).json({ status: 'degraded', database: 'unavailable' });
   }
 });
 application.use('/api/estates', estatesRouter);
-application.use('/api/alerts', alertsRouter);
+application.use('/api/alerts', (req, res, next) => {
+  if (req.method !== 'GET') return requireAdmin(req, res, next);
+  next();
+}, alertsRouter);
 application.use('/api/pipeline', pipelineRouter);
 application.use('/api/notifications', (req, res, next) => {
   if (req.method === 'POST') return requireAdmin(req, res, next);
@@ -68,6 +78,22 @@ application.post('/api/run-fetch', requireAdmin, async (req, res) => {
 });
 
 application.post('/api/ingest-gazettes', requireAdmin, async (_req, res) => {
+  try {
+    const result = await dependencies.ingest();
+    res.status(result.status === 'completed' ? 200 : 502).json({ success: result.status === 'completed', data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+application.post('/api/admin/migrate', requireAdmin, async (_req, res) => {
+  try {
+    await initializeDatabase();
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+application.get('/api/cron/ingest', requireCron, async (_req, res) => {
   try {
     const result = await dependencies.ingest();
     res.status(result.status === 'completed' ? 200 : 502).json({ success: result.status === 'completed', data: result });

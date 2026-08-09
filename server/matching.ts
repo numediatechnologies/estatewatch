@@ -5,6 +5,8 @@ export interface MatchResult {
   alertName: string;
   score: number;
   reasons: string[];
+  recipientEmail?: string;
+  ownerName?: string;
 }
 
 export const MIN_MATCH_SCORE = 20;
@@ -74,12 +76,12 @@ export function matchEstateToAlerts(estate: DeceasedEstate, alerts: AlertCriteri
           reasons.push(`District ${estate.district}`);
           score += 15;
         } else {
-          return { alertId: a.id, alertName: a.name, score: 0, reasons };
+          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
         }
       }
 
       if (a.valueBands.length && !valueBandMatches(estate.valueBand, a.valueBands)) {
-        return { alertId: a.id, alertName: a.name, score: 0, reasons };
+        return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
       }
       if (a.valueBands.length) {
         reasons.push(`Value ${estate.valueBand}`);
@@ -92,7 +94,7 @@ export function matchEstateToAlerts(estate: DeceasedEstate, alerts: AlertCriteri
           reasons.push(`Assets ${overlap.join(', ')}`);
           score += 10;
         } else {
-          return { alertId: a.id, alertName: a.name, score: 0, reasons };
+          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
         }
       }
 
@@ -101,12 +103,12 @@ export function matchEstateToAlerts(estate: DeceasedEstate, alerts: AlertCriteri
           reasons.push(`Status ${estate.status}`);
           score += 5;
         } else {
-          return { alertId: a.id, alertName: a.name, score: 0, reasons };
+          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
         }
       }
 
       const matched = score >= MIN_MATCH_SCORE && reasons.length > 0;
-      return { alertId: a.id, alertName: a.name, score: matched ? score : 0, reasons };
+      return { alertId: a.id, alertName: a.name, score: matched ? score : 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
     })
     .filter((r) => r.score >= MIN_MATCH_SCORE);
 }

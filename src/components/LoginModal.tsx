@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { UserAccount, SystemRole, UserRole } from '../types';
+import { UserAccount, UserRole } from '../types';
+import { neonAuthConfigured, signInWithNeon } from '../services/neonAuth';
 import { 
   ShieldCheck, 
   Lock, 
@@ -45,24 +46,24 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onLogin,
   onLogout
 }) => {
-  const [activeRoleTab, setActiveRoleTab] = useState<SystemRole>('user');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedPersona, setSelectedPersona] = useState<UserRole>('attorney');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const demoEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true';
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const accountName = email ? email.split('@')[0] : (activeRoleTab === 'admin' ? 'System Administrator' : 'Verified Subscriber');
-    onLogin({
-      id: `usr-${Date.now()}`,
-      email: email || (activeRoleTab === 'admin' ? 'admin@estatewatch.co.za' : 'user@estatewatch.co.za'),
-      name: accountName,
-      role: activeRoleTab,
-      userPersona: selectedPersona
-    });
-    onClose();
+    setError(''); setSubmitting(true);
+    try {
+      const user = await signInWithNeon(email, password);
+      onLogin({ id: user.id, email: user.email, name: user.name || user.email.split('@')[0], role: 'user', userPersona: selectedPersona });
+      onClose();
+    } catch (err: any) { setError(err.message || 'Sign-in failed'); }
+    finally { setSubmitting(false); }
   };
 
   return (
@@ -133,7 +134,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         ) : (
           <>
             {/* Quick Demo Switcher Presets */}
-            <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800/80 space-y-2">
+            {demoEnabled && <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800/80 space-y-2">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 Quick One-Click Demo Sign-In
@@ -171,39 +172,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   <div className="text-[10px] text-slate-400 truncate">Admin • Scraper & OCR + AI</div>
                 </button>
               </div>
-            </div>
+            </div>}
 
             {/* Custom Credentials Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               
-              {/* Role Toggle Tabs */}
-              <div className="flex rounded-xl bg-slate-950 p-1 border border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setActiveRoleTab('user')}
-                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    activeRoleTab === 'user' 
-                      ? 'bg-blue-600 text-white shadow-md' 
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Standard User</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveRoleTab('admin')}
-                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    activeRoleTab === 'admin' 
-                      ? 'bg-amber-500 text-slate-950 shadow-md' 
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  <span>Admin User</span>
-                </button>
-              </div>
-
               {/* Email Input */}
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
@@ -212,7 +185,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 </label>
                 <input
                   type="email"
-                  placeholder={activeRoleTab === 'admin' ? 'admin@estatewatch.co.za' : 'user@estatewatch.co.za'}
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500"
@@ -235,7 +208,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               </div>
 
               {/* Persona selection */}
-              {activeRoleTab === 'user' && (
+              {(
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-300">Default Persona View</label>
                   <select
@@ -255,15 +228,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               {/* Submit Button */}
               <button
                 type="submit"
-                className={`w-full py-3 rounded-xl font-bold text-xs transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer ${
-                  activeRoleTab === 'admin'
-                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20'
-                }`}
+                disabled={submitting || !neonAuthConfigured}
+                className="w-full py-3 rounded-xl font-bold text-xs transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20 disabled:opacity-50"
               >
                 <Lock className="w-4 h-4" />
-                <span>Sign In as {activeRoleTab === 'admin' ? 'Administrator' : 'User'}</span>
+                <span>{submitting ? 'Signing in…' : 'Sign In Securely'}</span>
               </button>
+              {!neonAuthConfigured && <p className="text-xs text-amber-400">Authentication is not configured for this deployment.</p>}
+              {error && <p className="text-xs text-rose-400" role="alert">{error}</p>}
 
             </form>
           </>

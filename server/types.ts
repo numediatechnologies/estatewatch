@@ -23,6 +23,15 @@ export interface DeceasedEstate {
   status: string;
   hasProperty: boolean;
   propertyDetails?: string;
+  dateOfBirth?: string;
+  lastAddress?: string;
+  spouseDetails?: string;
+  executorAddress?: string;
+  claimPeriodDays?: number;
+  gazetteNumber?: string;
+  gazettePage?: number;
+  sourceUrl?: string;
+  parserVersion?: string;
   matchScore?: number;
   matchedAlertIds?: string[];
 }
@@ -41,6 +50,8 @@ export interface AlertCriteria {
   matchCount: number;
   lastTriggered?: string;
   createdAt: string;
+  recipientEmail?: string;
+  ownerName?: string;
 }
 
 export interface PipelineItem {
@@ -150,16 +161,18 @@ export const alertSchema = z
     id: z.string().min(1).optional(),
     name: z.string().min(2).max(255),
     surnameMatch: z.string().max(255).optional(),
-    provinces: z.array(z.enum(PROVINCES)).min(1),
+    provinces: z.array(z.enum(PROVINCES)).default([]),
     districts: z.array(z.string().max(100)).optional(),
-    valueBands: z.array(z.enum(VALUE_BANDS)).min(1),
-    assetTypes: z.array(z.enum(ASSET_TYPES)).min(1),
+    valueBands: z.array(z.enum(VALUE_BANDS)).default([]),
+    assetTypes: z.array(z.enum(ASSET_TYPES)).default([]),
     executorStatus: z.array(z.enum(EXECUTOR_STATUSES)).optional(),
     channels: z.array(z.enum(CHANNELS)).min(1),
     isActive: z.boolean().optional(),
     matchCount: z.number().int().min(0).optional(),
     lastTriggered: z.string().max(50).nullable().optional(),
     createdAt: z.string().max(50).optional(),
+    recipientEmail: z.string().email().optional(),
+    ownerName: z.string().max(255).optional(),
   })
   .strict();
 

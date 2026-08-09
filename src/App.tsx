@@ -38,7 +38,8 @@ import { PopiaComplianceView } from './components/PopiaComplianceView';
 import { BillingView } from './components/BillingView';
 import { EstateDetailModal } from './components/EstateDetailModal';
 import { SimulateMatchModal } from './components/SimulateMatchModal';
-import { LoginModal, DEMO_ADMIN, DEMO_USER } from './components/LoginModal';
+import { LoginModal } from './components/LoginModal';
+import { signOutFromNeon } from './services/neonAuth';
 
 import { Bot, Check, X, Bell, MessageSquare, Zap, Database, Mail } from 'lucide-react';
 import { UserAccount } from './types';
@@ -50,15 +51,16 @@ export function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Core Data State (Initialized with mocks, updated from Neon DB)
-  const [estates, setEstates] = useState<DeceasedEstate[]>(INITIAL_ESTATES);
-  const [alerts, setAlerts] = useState<AlertCriteria[]>(INITIAL_ALERTS);
-  const [pipeline, setPipeline] = useState<PipelineItem[]>(INITIAL_PIPELINE);
+  const demoEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_DATA === 'true';
+  const [estates, setEstates] = useState<DeceasedEstate[]>(demoEnabled ? INITIAL_ESTATES : []);
+  const [alerts, setAlerts] = useState<AlertCriteria[]>(demoEnabled ? INITIAL_ALERTS : []);
+  const [pipeline, setPipeline] = useState<PipelineItem[]>(demoEnabled ? INITIAL_PIPELINE : []);
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
 
   // Modals & Notifications
   const [selectedEstate, setSelectedEstate] = useState<DeceasedEstate | null>(null);
   const [simulateModalOpen, setSimulateModalOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationEvent[]>([
+  const [notifications, setNotifications] = useState<NotificationEvent[]>(demoEnabled ? [
     {
       id: 'notif-1',
       alertId: 'alt-1',
@@ -71,7 +73,7 @@ export function App() {
       status: 'delivered',
       recipient: 'attorney@estatewatch.co.za'
     }
-  ]);
+  ] : []);
   const [toastNotification, setToastNotification] = useState<NotificationEvent | null>(null);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
 
@@ -430,7 +432,8 @@ export function App() {
           setCurrentRole(account.userPersona);
           setShowLoginModal(false);
         }}
-        onLogout={() => {
+        onLogout={async () => {
+          await signOutFromNeon();
           setCurrentUser(null);
           setCurrentRole('attorney');
         }}

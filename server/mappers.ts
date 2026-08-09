@@ -22,6 +22,15 @@ export function mapEstateRow(row: DbEstateRow): DeceasedEstate {
     status: row.status,
     hasProperty: row.has_property,
     propertyDetails: row.property_details || undefined,
+    dateOfBirth: (row as any).date_of_birth || undefined,
+    lastAddress: (row as any).last_address || undefined,
+    spouseDetails: (row as any).spouse_details || undefined,
+    executorAddress: (row as any).executor_address || undefined,
+    claimPeriodDays: (row as any).claim_period_days || undefined,
+    gazetteNumber: (row as any).gazette_number || undefined,
+    gazettePage: (row as any).gazette_page || undefined,
+    sourceUrl: (row as any).source_url || undefined,
+    parserVersion: (row as any).parser_version || undefined,
   };
 }
 
@@ -40,5 +49,7 @@ export function mapAlertRow(row: any): AlertCriteria {
     matchCount: row.match_count,
     lastTriggered: row.last_triggered || undefined,
     createdAt: row.created_at,
+    recipientEmail: row.recipient_email || undefined,
+    ownerName: row.owner_name || undefined,
   };
 }

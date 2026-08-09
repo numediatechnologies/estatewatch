@@ -15,7 +15,7 @@ describe('Firecrawl J193 discovery', () => {
     expect(parseGazetteSearchMarkdown(row('2026-07-31', '55077-part-1'))[0]).toEqual({
       title: 'South Africa Government Gazette Legal Notices A dated 2026-07-31 number 55077-part-1',
       datePublished: '2026-07-31',
-      downloadUrl: 'https://gazettes.africa/akn/za/officialGazette/government-gazette-legal-notices-a/2026-07-31/55077-part-1/eng@2026-07-31/source',
+      downloadUrl: 'https://archive.gazettes.africa/archive/za/2026/za-government-gazette-legal-notices-a-dated-2026-07-31-no-55077-part-1.pdf',
     });
   });
 
