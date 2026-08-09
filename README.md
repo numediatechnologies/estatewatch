@@ -51,7 +51,7 @@ npm run build
 npm run dev
 ```
 
-Production database initialization is additive and never seeds demo rows. Frontend demo data/login require explicit development-only flags. Registration, sign-in, and password recovery are verified by hosted Neon Auth through the EstateWatch API. Reset requests always return a generic account-safe response; emailed links open the EstateWatch reset form and expired or invalid tokens are rejected. The API issues a signed HttpOnly session, restores it on reload, and resolves roles server-side. Users cannot select their own role. The configured `ADMIN_EMAIL` receives administrator access and bypasses subscription/payment gates.
+Production database initialization is additive and never seeds demo rows. Frontend demo data/login require explicit development-only flags. Email registration sends a verification link and does not issue an EstateWatch session until the person signs in after verification. People may instead verify a South African mobile number with a six-digit SMS code that expires after five minutes and allows no more than five attempts. Codes are HMAC-hashed and never stored in plain text. Password recovery uses an account-safe generic response; expired or invalid links are rejected. The API issues a signed HttpOnly session, restores it on reload, and resolves roles server-side. Users cannot select their own role. The configured `ADMIN_EMAIL` receives administrator access and bypasses subscription/payment gates.
 
 ## Environment variables
 

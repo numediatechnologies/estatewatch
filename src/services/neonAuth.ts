@@ -11,15 +11,17 @@ async function request(path: string, body?: object) {
   return result.user as { id: string; email: string; name: string; role: 'user' | 'admin' };
 }
 
-async function action(path: string, body: object) {
+async function action<T extends { success: true; message: string } = { success: true; message: string }>(path: string, body: object): Promise<T> {
   const response = await fetch(`/api/auth/${path}`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || 'Authentication request failed');
-  return result as { success: true; message: string };
+  return result as T;
 }
 
 export const signInWithNeon = (email: string, password: string) => request('login', { email, password });
-export const registerWithNeon = (name: string, email: string, password: string) => request('register', { name, email, password });
+export const registerWithEmail = (name: string, email: string, password: string) => action('register', { name, email, password, verificationMethod: 'email' });
+export const startSmsRegistration = (email: string, phone: string) => action<{ success: true; message: string; challengeId: string; phoneMasked: string }>('register/sms/start', { email, phone });
+export const verifySmsRegistration = (challengeId: string, code: string, name: string, email: string, password: string) => request('register/sms/verify', { challengeId, code, name, email, password });
 export const requestPasswordReset = (email: string) => action('forgot-password', { email });
 export const resetPassword = (token: string, newPassword: string) => action('reset-password', { token, newPassword });
 export async function restoreNeonSession() { try { return await request('session'); } catch { return null; } }

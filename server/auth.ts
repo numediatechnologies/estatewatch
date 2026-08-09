@@ -95,7 +95,8 @@ export function clearSessionCookie(res: Response) {
 }
 
 export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string }, transport: AuthTransport = postAuthJson) {
-  const result = await callNeonAuth(`${mode}/email`, body, transport);
+  const requestBody = mode === 'sign-up' ? { ...body, callbackURL: process.env.APP_URL || '/' } : body;
+  const result = await callNeonAuth(`${mode}/email`, requestBody, transport);
   const user = result.user;
   if (!user?.id || !user?.email) throw new Error(mode === 'sign-up' ? 'Check your email to verify the new account before signing in.' : 'Neon did not return a verified user.');
   const email = String(user.email).toLowerCase();

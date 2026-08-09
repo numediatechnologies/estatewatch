@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { UserAccount, UserRole } from '../types';
-import { neonAuthConfigured, registerWithNeon, requestPasswordReset, resetPassword, signInWithNeon } from '../services/neonAuth';
+import { neonAuthConfigured, registerWithEmail, requestPasswordReset, resetPassword, signInWithNeon, startSmsRegistration, verifySmsRegistration } from '../services/neonAuth';
 import { 
   ShieldCheck, 
   Lock, 
@@ -55,6 +55,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [selectedPersona, setSelectedPersona] = useState<UserRole>('attorney');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [verificationMethod, setVerificationMethod] = useState<'email' | 'sms'>('email');
+  const [phone, setPhone] = useState('');
+  const [smsCode, setSmsCode] = useState('');
+  const [smsChallengeId, setSmsChallengeId] = useState('');
   const demoEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true';
 
   useEffect(() => {
@@ -87,7 +91,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         setPassword(''); setConfirmPassword(''); setMode('login'); setSuccess(result.message);
         return;
       }
-      const user = mode === 'register' ? await registerWithNeon(name, email, password) : await signInWithNeon(email, password);
+      if (mode === 'register' && verificationMethod === 'email') {
+        const result = await registerWithEmail(name, email, password);
+        setSuccess(result.message); setPassword(''); return;
+      }
+      if (mode === 'register' && verificationMethod === 'sms' && !smsChallengeId) {
+        const result = await startSmsRegistration(email, phone);
+        setSmsChallengeId(result.challengeId); setSuccess(result.message); return;
+      }
+      const user = mode === 'register'
+        ? await verifySmsRegistration(smsChallengeId, smsCode, name, email, password)
+        : await signInWithNeon(email, password);
       onLogin({ id: user.id, email: user.email, name: user.name || user.email.split('@')[0], role: user.role, userPersona: selectedPersona });
       onClose();
     } catch (err: any) { setError(err.message || 'Sign-in failed'); }
@@ -214,6 +228,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 <label className="text-xs font-semibold text-slate-300">Full Name</label>
                 <input required type="text" minLength={2} placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
               </div>}
+              {mode === 'register' && <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-300">How should we verify you?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => { setVerificationMethod('email'); setSmsChallengeId(''); }} className={`py-2 rounded-xl border text-xs font-bold ${verificationMethod === 'email' ? 'border-amber-500 bg-amber-500/10 text-amber-300' : 'border-slate-800 text-slate-400'}`}><Mail className="inline w-3.5 h-3.5 mr-1" />Email</button>
+                  <button type="button" onClick={() => setVerificationMethod('sms')} className={`py-2 rounded-xl border text-xs font-bold ${verificationMethod === 'sms' ? 'border-amber-500 bg-amber-500/10 text-amber-300' : 'border-slate-800 text-slate-400'}`}>SMS</button>
+                </div>
+                <p className="text-[11px] text-slate-500">Email is the simple default. SMS verifies that you control the mobile number.</p>
+              </div>}
               
               {/* Email Input */}
               {mode !== 'reset' && <div className="space-y-1">
@@ -248,6 +270,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 />
               </div>}
 
+              {mode === 'register' && verificationMethod === 'sms' && <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300">South African mobile number</label>
+                <input type="tel" placeholder="063 791 1099" value={phone} disabled={Boolean(smsChallengeId)} required onChange={(e) => setPhone(e.target.value)} className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500 disabled:opacity-60" />
+              </div>}
+              {mode === 'register' && verificationMethod === 'sms' && smsChallengeId && <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300">Six-digit SMS code</label>
+                <input inputMode="numeric" autoComplete="one-time-code" placeholder="000000" value={smsCode} required pattern="[0-9]{6}" onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, '').slice(0, 6))} className="w-full bg-slate-950 text-slate-200 text-center tracking-[0.4em] text-lg px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
+              </div>}
+
               {mode === 'reset' && <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-300">Confirm New Password</label>
                 <input type="password" placeholder="••••••••••••" value={confirmPassword} required minLength={8} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
@@ -278,7 +309,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 className="w-full py-3 rounded-xl font-bold text-xs transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20 disabled:opacity-50"
               >
                 <Lock className="w-4 h-4" />
-                <span>{submitting ? 'Please wait…' : mode === 'register' ? 'Create Secure Account' : mode === 'forgot' ? 'Send Reset Link' : mode === 'reset' ? 'Update Password' : 'Sign In Securely'}</span>
+                <span>{submitting ? 'Please wait…' : mode === 'register' && verificationMethod === 'sms' && !smsChallengeId ? 'Send SMS Code' : mode === 'register' && verificationMethod === 'sms' ? 'Verify and Create Account' : mode === 'register' ? 'Send Verification Email' : mode === 'forgot' ? 'Send Reset Link' : mode === 'reset' ? 'Update Password' : 'Sign In Securely'}</span>
               </button>
               {mode === 'login' && <button type="button" onClick={() => { setMode('forgot'); setError(''); setSuccess(''); }} className="w-full text-xs font-semibold text-blue-400 hover:text-blue-300">Forgot your password?</button>}
               {(mode === 'forgot' || mode === 'reset') && <button type="button" onClick={() => { setMode('login'); setError(''); setSuccess(''); }} className="w-full text-xs font-semibold text-slate-400 hover:text-white">Back to sign in</button>}

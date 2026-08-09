@@ -19,6 +19,12 @@ describe('Firecrawl API', () => {
     expect((await request(app).post('/api/auth/reset-password').send({ token: 'long-enough-token', newPassword: 'short' })).status).toBe(400);
   });
 
+  it('rejects malformed registration verification requests before delivery', async () => {
+    const app = createApp({ discover: vi.fn(), createClient: () => ({}) as FirecrawlDiscoveryClient, ingest: vi.fn() });
+    expect((await request(app).post('/api/auth/register/sms/start').send({ email: 'invalid', phone: '0637911099' })).status).toBe(400);
+    expect((await request(app).post('/api/auth/register/sms/verify').send({ code: '12', password: 'short' })).status).toBe(400);
+  });
+
   it('protects Firecrawl endpoints when an admin token is configured', async () => {
     const previous = process.env.ADMIN_API_TOKEN;
     process.env.ADMIN_API_TOKEN = 'test-secret';

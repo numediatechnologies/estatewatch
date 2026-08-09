@@ -29,7 +29,7 @@ describe('application authentication', () => {
     queryMock.mockResolvedValue({ rowCount: 1 });
     const result = await authenticateWithNeon('sign-up', { name: 'Support', email: 'support@marketdirecto.co.za', password: 'valid-password' }, transportMock);
     expect(result.role).toBe('admin');
-    expect(transportMock).toHaveBeenCalledWith('https://auth.example.test/sign-up/email', expect.any(Object), 'https://estatewatch.marketdirect.co.za');
+    expect(transportMock).toHaveBeenCalledWith('https://auth.example.test/sign-up/email', expect.objectContaining({ callbackURL: 'https://estatewatch.marketdirect.co.za/' }), 'https://estatewatch.marketdirect.co.za');
     expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('user_profiles'), expect.arrayContaining(['admin']));
   });
 

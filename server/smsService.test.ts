@@ -7,6 +7,7 @@ describe('Clickatell SMS delivery', () => {
   it('normalizes international recipients and links to the exact estate record', () => {
     process.env.APP_URL = 'https://estatewatch.marketdirect.co.za';
     expect(normalizeSmsRecipient('+27 61 042 1779')).toBe('27610421779');
+    expect(normalizeSmsRecipient('(063) 791-1099')).toBe('27637911099');
     expect(renderEstateAlertSms({ to: '27610421779', estateId: 'est-1', estateName: 'HOOSAIN, ROKEYA', estateNumber: '018808/2023', province: 'Gauteng' })).toContain('https://estatewatch.marketdirect.co.za/?estate=est-1');
   });
 

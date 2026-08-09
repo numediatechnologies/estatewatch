@@ -11,6 +11,8 @@ import { runIngestion } from './ingestService.js';
 import { query } from './db.js';
 import { initializeDatabase } from './initDb.js';
 import { authenticateWithNeon, clearSessionCookie, createSessionToken, readSession, requestPasswordResetWithNeon, resetPasswordWithNeon, setSessionCookie } from './auth.js';
+import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
+import { normalizeSmsRecipient, sendVerificationSms } from './smsService.js';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -48,9 +50,45 @@ application.use(cors());
 application.use(express.json({ limit: '1mb' }));
 application.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, name } = req.body || {};
+    const { email, password, name, verificationMethod = 'email' } = req.body || {};
     if (typeof email !== 'string' || typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: 'A valid email and password of at least 8 characters are required' });
+    if (verificationMethod !== 'email') return res.status(400).json({ error: 'Use the SMS verification start endpoint for mobile verification' });
     const session = await authenticateWithNeon('sign-up', { email, password, name });
+    res.status(202).json({ success: true, verificationRequired: true, method: 'email', message: `Great! Check ${session.email} and follow the verification link, then sign in.` });
+  } catch (error: any) { res.status(error.status || 400).json({ error: error.message }); }
+});
+const verificationHash = (id: string, code: string) => {
+  const secret = process.env.AUTH_SESSION_SECRET || process.env.ADMIN_API_TOKEN;
+  if (!secret) throw Object.assign(new Error('Registration verification is not configured'), { status: 503 });
+  return createHmac('sha256', secret).update(`${id}:${code}`).digest('hex');
+};
+application.post('/api/auth/register/sms/start', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Enter a valid email address' });
+    const phone = normalizeSmsRecipient(String(req.body?.phone || ''));
+    if (!phone.startsWith('27')) return res.status(400).json({ error: 'Enter a South African mobile number' });
+    const recent = await query(`SELECT count(*)::int count FROM registration_verifications WHERE (email=$1 OR phone_number=$2) AND created_at > NOW() - INTERVAL '10 minutes'`, [email, phone]);
+    if (Number(recent.rows[0]?.count) >= 3) return res.status(429).json({ error: 'Too many verification requests. Please wait 10 minutes and try again.' });
+    const id = randomUUID(); const code = String(randomInt(100000, 1000000));
+    await query(`INSERT INTO registration_verifications(id,email,phone_number,code_hash,expires_at) VALUES($1,$2,$3,$4,NOW()+INTERVAL '5 minutes')`, [id, email, phone, verificationHash(id, code)]);
+    const sent = await sendVerificationSms(phone, code);
+    if (!sent.success) { await query('DELETE FROM registration_verifications WHERE id=$1', [id]); throw Object.assign(new Error('We could not send the SMS. Choose email verification or try again.'), { status: 502 }); }
+    res.status(202).json({ success: true, challengeId: id, phoneMasked: `***${phone.slice(-4)}`, message: `We sent a six-digit code to ***${phone.slice(-4)}.` });
+  } catch (error: any) { res.status(error.status || 400).json({ error: error.message }); }
+});
+application.post('/api/auth/register/sms/verify', async (req, res) => {
+  try {
+    const { challengeId, code, email, password, name } = req.body || {};
+    if (!/^[0-9]{6}$/.test(String(code || '')) || typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: 'Enter the six-digit code and a password of at least 8 characters' });
+    const result = await query(`SELECT * FROM registration_verifications WHERE id=$1 AND used_at IS NULL`, [challengeId]);
+    const challenge = result.rows[0];
+    if (!challenge || challenge.expires_at < new Date() || challenge.attempts >= 5 || challenge.email !== String(email).toLowerCase()) return res.status(400).json({ error: 'That code is invalid or expired. Request a new code.' });
+    const expected = Buffer.from(challenge.code_hash); const actual = Buffer.from(verificationHash(challengeId, String(code)));
+    if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) { await query('UPDATE registration_verifications SET attempts=attempts+1 WHERE id=$1', [challengeId]); return res.status(400).json({ error: 'That code is incorrect.' }); }
+    const session = await authenticateWithNeon('sign-up', { email: challenge.email, password, name });
+    await query('UPDATE registration_verifications SET used_at=NOW() WHERE id=$1', [challengeId]);
+    await query('UPDATE user_profiles SET phone_number=$1,phone_verified_at=NOW() WHERE auth_subject=$2', [challenge.phone_number, session.sub]);
     setSessionCookie(res, createSessionToken(session));
     res.status(201).json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role } });
   } catch (error: any) { res.status(error.status || 400).json({ error: error.message }); }
