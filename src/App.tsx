@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  UserRole, 
-  DeceasedEstate, 
-  AlertCriteria, 
-  PipelineItem, 
-  PipelineStage, 
-  NotificationEvent 
+import {
+  UserRole,
+  DeceasedEstate,
+  AlertCriteria,
+  PipelineItem,
+  PipelineStage,
+  NotificationEvent
 } from './types';
 import { INITIAL_ESTATES } from './data/mockEstates';
 import { INITIAL_ALERTS } from './data/mockAlerts';
@@ -33,16 +33,21 @@ import { EstatesFeedView } from './components/EstatesFeedView';
 import { AlertBuilderView } from './components/AlertBuilderView';
 import { PipelineCrmView } from './components/PipelineCrmView';
 import { IngestionScannerView } from './components/IngestionScannerView';
+import { AdminScraperView } from './components/AdminScraperView';
 import { PopiaComplianceView } from './components/PopiaComplianceView';
 import { BillingView } from './components/BillingView';
 import { EstateDetailModal } from './components/EstateDetailModal';
 import { SimulateMatchModal } from './components/SimulateMatchModal';
+import { LoginModal, DEMO_ADMIN, DEMO_USER } from './components/LoginModal';
 
-import { Check, X, Bell, MessageSquare, Zap, Database, Mail } from 'lucide-react';
+import { Bot, Check, X, Bell, MessageSquare, Zap, Database, Mail } from 'lucide-react';
+import { UserAccount } from './types';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [currentRole, setCurrentRole] = useState<UserRole>('attorney');
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Core Data State (Initialized with mocks, updated from Neon DB)
   const [estates, setEstates] = useState<DeceasedEstate[]>(INITIAL_ESTATES);
@@ -112,8 +117,8 @@ export function App() {
 
   // Add Lead to Pipeline
   const handleAddToPipeline = async (
-    estate: DeceasedEstate, 
-    stage: PipelineStage = 'new', 
+    estate: DeceasedEstate,
+    stage: PipelineStage = 'new',
     notes: string = ''
   ) => {
     if (pipeline.some(p => p.estateId === estate.id)) return;
@@ -222,7 +227,7 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-      
+
       {/* DB Connection Status Banner */}
       <div className="bg-slate-900 border-b border-slate-800 px-4 py-1.5 flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
@@ -236,7 +241,7 @@ export function App() {
           )}
           {dbConnected === false && (
             <span className="inline-flex items-center gap-1.5 text-amber-400 font-bold bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/30">
-              Local Mock Standby Mode
+              Demo data — API unavailable
             </span>
           )}
           {dbConnected === null && (
@@ -255,11 +260,13 @@ export function App() {
         onOpenSimulateModal={() => setSimulateModalOpen(true)}
         unreadCount={notifications.length}
         onOpenNotifications={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
+        onOpenLoginModal={() => setShowLoginModal(true)}
+        currentUser={currentUser}
       />
 
       {/* Main Container Layout */}
       <div className="flex-1 flex flex-col lg:flex-row max-w-7xl w-full mx-auto p-3 lg:p-6 gap-6">
-        
+
         {/* Left Sidebar Navigation */}
         <Sidebar
           activeTab={activeTab}
@@ -270,7 +277,7 @@ export function App() {
 
         {/* Right Main Content Stage */}
         <main className="flex-1 min-w-0">
-          
+
           {activeTab === 'dashboard' && (
             <DashboardView
               currentRole={currentRole}
@@ -313,6 +320,26 @@ export function App() {
 
           {activeTab === 'ingestion' && (
             <IngestionScannerView />
+          )}
+
+          {activeTab === 'admin' && (
+            currentUser?.role === 'admin' ? (
+              <AdminScraperView onPublishEstate={(estate) => {
+                setEstates(prev => [estate, ...prev]);
+              }} />
+            ) : (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
+                <Bot className="w-12 h-12 text-amber-400 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">Admin Access Required</h3>
+                <p className="text-slate-400 mb-6">You need administrator privileges to access the scraper and ingestion tools.</p>
+                <button
+                  onClick={() => setShowLoginModal(true)}
+                  className="bg-amber-500 text-slate-950 px-6 py-2 rounded-xl font-semibold hover:bg-amber-400"
+                >
+                  Login as Admin
+                </button>
+              </div>
+            )
           )}
 
           {activeTab === 'popia' && (
@@ -392,6 +419,22 @@ export function App() {
           </div>
         </div>
       )}
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        currentUser={currentUser}
+        onLogin={(account) => {
+          setCurrentUser(account);
+          setCurrentRole(account.userPersona);
+          setShowLoginModal(false);
+        }}
+        onLogout={() => {
+          setCurrentUser(null);
+          setCurrentRole('attorney');
+        }}
+      />
 
     </div>
   );

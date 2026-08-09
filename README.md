@@ -1,4 +1,56 @@
-# Estate Watch — No-Code Product Blueprint
+# Estate Watch
+
+## Firecrawl J193 quick start
+
+EstateWatch uses Firecrawl Agent to traverse the South African `J193` results on
+gazettes.africa. It starts at page 1, searches the current year (and previous year
+when necessary), and stops when a result falls outside the rolling four-month window.
+The shared implementation lives in `server/firecrawlDiscovery.ts` and is used by the
+CLI, API, and admin screen.
+
+Requirements: Node.js 22 or newer, PostgreSQL, and a Firecrawl API key.
+
+```bash
+cp .env.example .env
+# Edit .env and set FIRECRAWL_API_KEY, DATABASE_URL and ADMIN_API_TOKEN.
+npm install
+npm run db:init
+npm run dev
+```
+
+Demo records are not seeded by default. For a local demo only, set
+`SEED_DEMO_DATA=true` before running `npm run db:init`.
+
+Run deterministic tests without consuming Firecrawl credits:
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+Run the bounded live smoke test (one page, maximum 20 credits):
+
+```bash
+npm run test:firecrawl:live
+```
+
+Run discovery from the CLI, or through the protected local API:
+
+```bash
+npm run fetch-gazettes
+curl -X POST http://localhost:5050/api/run-fetch \
+  -H "Authorization: Bearer $ADMIN_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{"maxPages":1}'
+```
+
+The live test is intentionally excluded from `npm test`. Firecrawl Agent calls incur
+credits and require network access. Production deployments must configure
+`FIRECRAWL_API_KEY`, `DATABASE_URL`, `ADMIN_API_TOKEN`, and `APP_URL` as server-side
+environment variables.
+
+
 
 **Core differentiator:** Not a static estate database — users configure **alerts** (by surname, province, estate value band, asset type, executor status) and get **push/email/WhatsApp notified** the instant a matching deceased estate is officially reported.
 

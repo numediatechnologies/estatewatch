@@ -1,24 +1,26 @@
 import React from 'react';
-import { 
-  LayoutDashboard, 
-  FileText, 
-  BellRing, 
-  Briefcase, 
-  Cpu, 
-  ShieldCheck, 
+import {
+  LayoutDashboard,
+  FileText,
+  BellRing,
+  Briefcase,
+  Cpu,
+  ShieldCheck,
   CreditCard,
   Building2,
   Sparkles,
-  HelpCircle
+  HelpCircle,
+  Bot
 } from 'lucide-react';
 
-export type TabType = 
-  | 'dashboard' 
-  | 'estates' 
-  | 'alerts' 
-  | 'pipeline' 
-  | 'ingestion' 
-  | 'popia' 
+export type TabType =
+  | 'dashboard'
+  | 'estates'
+  | 'alerts'
+  | 'pipeline'
+  | 'ingestion'
+  | 'admin'
+  | 'popia'
   | 'billing';
 
 interface SidebarProps {
@@ -40,6 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'alerts', label: 'Alert Builder Wizard', icon: <BellRing className="w-4 h-4" /> },
     { id: 'pipeline', label: 'Lead Pipeline CRM', icon: <Briefcase className="w-4 h-4" />, badge: pipelineCount },
     { id: 'ingestion', label: 'Ingestion & OCR Parser', icon: <Cpu className="w-4 h-4" /> },
+    { id: 'admin', label: 'Admin Scraper', icon: <Bot className="w-4 h-4" /> },
     { id: 'popia', label: 'POPIA & Legal Basis', icon: <ShieldCheck className="w-4 h-4" /> },
     { id: 'billing', label: 'Subscription & Plans', icon: <CreditCard className="w-4 h-4" /> },
   ];
@@ -47,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside className="w-full lg:w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between shrink-0">
       <div className="p-3 lg:p-4 space-y-6">
-        
+
         {/* Navigation Group */}
         <div>
           <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-2 px-3">
@@ -112,9 +115,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
           <span className="text-[11px] text-slate-400">SA Gazette v2.4 Live</span>
         </div>
-        <a 
-          href="#popia" 
-          onClick={(e) => { e.preventDefault(); onTabChange('popia'); }} 
+        <a
+          href="#popia"
+          onClick={(e) => { e.preventDefault(); onTabChange('popia'); }}
           className="text-[11px] text-amber-400/80 hover:text-amber-400 hover:underline"
         >
           POPIA Info

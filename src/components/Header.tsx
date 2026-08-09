@@ -17,6 +17,8 @@ interface HeaderProps {
   onOpenSimulateModal: () => void;
   unreadCount: number;
   onOpenNotifications: () => void;
+  onOpenLoginModal: () => void;
+  currentUser: any;
 }
 
 const ROLE_LABELS: Record<UserRole, { label: string; desc: string }> = {
@@ -33,7 +35,9 @@ export const Header: React.FC<HeaderProps> = ({
   onRoleChange,
   onOpenSimulateModal,
   unreadCount,
-  onOpenNotifications
+  onOpenNotifications,
+  onOpenLoginModal,
+  currentUser
 }) => {
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
 
@@ -51,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-bold text-lg lg:text-xl tracking-tight text-white flex items-center gap-1.5">
-                ESTATE<span className="text-amber-400 font-serif font-bold">WATCH</span>
+                ESTATE<span className="text-amber-400 font-serif font-bold">WATCH</span> <span className="text-amber-400">👁️</span>
               </h1>
               <span className="text-[10px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                 SA Gazette Monitor
@@ -130,6 +134,15 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
           </div>
+
+          {/* Login Button */}
+          <button
+            onClick={onOpenLoginModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700/80 border border-slate-700/80 rounded-lg text-xs text-slate-300 hover:text-white transition-colors cursor-pointer"
+          >
+            <UserCheck className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden md:inline">{currentUser ? currentUser.name : 'Login'}</span>
+          </button>
 
           {/* Notification Bell */}
           <button

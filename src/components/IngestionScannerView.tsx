@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { GazetteAdminLoader } from './Admin/GazetteAdminLoader';
+import { GazetteAdmin } from './Admin/GazetteAdmin';
 import { Cpu, FileCode, CheckCircle2, RefreshCw, Sparkles, FileText, Play } from 'lucide-react';
 
 const SAMPLE_RAW_TEXTS = [
@@ -256,6 +257,20 @@ export const IngestionScannerView: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Real Gazette Admin Integration */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <FileCode className="w-4 h-4 text-amber-400" />
+              Live Gazette Ingestion
+            </h3>
+            <p className="text-xs text-slate-400">Real-time Firecrawl integration with South African Government Gazette</p>
+          </div>
+        </div>
+        <GazetteAdmin />
       </div>
 
       {/* Interactive OCR Sandbox */}
