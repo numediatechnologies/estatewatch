@@ -36,6 +36,13 @@ export async function fetchEstate(id: string): Promise<DeceasedEstate | null> {
   }
 }
 
+export async function fetchOriginalGazetteUrl(id: string): Promise<string> {
+  const res = await apiFetch(`${API_BASE}/estates/${encodeURIComponent(id)}/source`);
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(result.error || 'Original Gazette PDF is unavailable');
+  return result.url;
+}
+
 export async function createEstate(estate: DeceasedEstate): Promise<DeceasedEstate | null> {
   try {
     const res = await apiFetch(`${API_BASE}/estates`, {

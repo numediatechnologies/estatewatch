@@ -29,7 +29,6 @@ export function mapEstateRow(row: DbEstateRow): DeceasedEstate {
     claimPeriodDays: (row as any).claim_period_days || undefined,
     gazetteNumber: (row as any).gazette_number || undefined,
     gazettePage: (row as any).gazette_page || undefined,
-    sourceUrl: (row as any).source_url || undefined,
     parserVersion: (row as any).parser_version || undefined,
   };
 }

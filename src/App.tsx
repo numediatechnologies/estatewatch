@@ -55,7 +55,7 @@ export function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.has('reset-password')) setShowLoginModal(true);
     void restoreNeonSession().then((user) => {
-      if (user) setCurrentUser({ id: user.id, email: user.email, name: user.name, role: user.role, userPersona: 'attorney' });
+      if (user) setCurrentUser({ id: user.id, email: user.email, name: user.name, role: user.role, subscriptionActive: user.subscriptionActive, userPersona: 'attorney' });
     });
   }, []);
 
@@ -402,6 +402,9 @@ export function App() {
           }}
           onAddToPipeline={handleAddToPipeline}
           isInPipeline={pipelineEstateIds.includes(selectedEstate.id)}
+          isSignedIn={Boolean(currentUser)}
+          canViewOriginal={currentUser?.role === 'admin' || currentUser?.subscriptionActive === true}
+          onViewPlans={() => { setSelectedEstate(null); setActiveTab('billing'); }}
         />
       )}
 

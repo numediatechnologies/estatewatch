@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { DeceasedEstate, PipelineStage } from '../types';
 import { SendEmailModal } from './SendEmailModal';
+import { fetchOriginalGazetteUrl } from '../services/api';
 import { 
   X, 
   Building2, 
@@ -22,18 +23,33 @@ interface EstateDetailModalProps {
   onClose: () => void;
   onAddToPipeline: (estate: DeceasedEstate, stage: PipelineStage, notes: string) => void;
   isInPipeline: boolean;
+  isSignedIn: boolean;
+  canViewOriginal: boolean;
+  onViewPlans: () => void;
 }
 
 export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
   estate,
   onClose,
   onAddToPipeline,
-  isInPipeline
+  isInPipeline,
+  isSignedIn,
+  canViewOriginal,
+  onViewPlans,
 }) => {
   const [notes, setNotes] = React.useState('');
   const [stage, setStage] = React.useState<PipelineStage>('new');
   const [copied, setCopied] = React.useState(false);
   const [showEmailModal, setShowEmailModal] = React.useState(false);
+  const [sourceError, setSourceError] = React.useState('');
+  const [openingSource, setOpeningSource] = React.useState(false);
+
+  const handleViewOriginal = async () => {
+    setSourceError(''); setOpeningSource(true);
+    try { window.open(await fetchOriginalGazetteUrl(estate.id), '_blank', 'noopener,noreferrer'); }
+    catch (error: any) { setSourceError(error.message); }
+    finally { setOpeningSource(false); }
+  };
 
   const handleCopyNotice = () => {
     navigator.clipboard.writeText(
@@ -113,6 +129,8 @@ export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
             <p className="text-xs font-mono text-slate-300 bg-slate-900 p-3 rounded-lg border border-slate-800 leading-relaxed italic">
               "{estate.rawNoticeSnippet}"
             </p>
+            {canViewOriginal ? <button onClick={handleViewOriginal} disabled={openingSource} className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-60"><ExternalLink className="w-3.5 h-3.5" />{openingSource ? 'Opening…' : 'View Original Gazette PDF'}</button> : <div className="rounded-lg border border-slate-700 bg-slate-900 p-3 text-xs text-slate-400"><ShieldAlert className="inline w-4 h-4 mr-1.5 text-amber-400" />{isSignedIn ? 'Original Gazette PDFs are available with an active subscription.' : 'Sign in with an active subscription to view the original Gazette PDF.'} {isSignedIn && <button onClick={onViewPlans} className="ml-1 font-bold text-amber-400 hover:underline">View Plans</button>}</div>}
+            {sourceError && <p role="alert" className="text-xs text-rose-400">{sourceError}</p>}
           </div>
 
           {/* Property & Assets Section */}

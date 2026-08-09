@@ -12,6 +12,7 @@ export interface AppSession {
   email: string;
   name: string;
   role: 'user' | 'admin';
+  subscriptionActive?: boolean;
   exp: number;
 }
 
@@ -102,9 +103,12 @@ export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { 
   const email = String(user.email).toLowerCase();
   const role = roleForEmail(email);
   const name = user.name || body.name || email.split('@')[0];
-  await query(`INSERT INTO user_profiles(auth_subject,email,display_name,role) VALUES($1,$2,$3,$4)
-    ON CONFLICT(auth_subject) DO UPDATE SET email=EXCLUDED.email,display_name=EXCLUDED.display_name,role=EXCLUDED.role`, [user.id, email, name, role]);
-  return { sub: user.id as string, email, name, role };
+  const profile = await query(`INSERT INTO user_profiles(auth_subject,email,display_name,role) VALUES($1,$2,$3,$4)
+    ON CONFLICT(auth_subject) DO UPDATE SET email=EXCLUDED.email,display_name=EXCLUDED.display_name,role=EXCLUDED.role
+    RETURNING subscription_status,subscription_expires_at`, [user.id, email, name, role]);
+  const row = profile.rows?.[0];
+  const subscriptionActive = role === 'admin' || (row?.subscription_status === 'active' && (!row.subscription_expires_at || new Date(row.subscription_expires_at) > new Date()));
+  return { sub: user.id as string, email, name, role, subscriptionActive };
 }
 
 export async function requestPasswordResetWithNeon(email: string, transport: AuthTransport = postAuthJson) {

@@ -8,7 +8,7 @@ async function request(path: string, body?: object) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || 'Authentication request failed');
-  return result.user as { id: string; email: string; name: string; role: 'user' | 'admin' };
+  return result.user as { id: string; email: string; name: string; role: 'user' | 'admin'; subscriptionActive?: boolean };
 }
 
 async function action<T extends { success: true; message: string } = { success: true; message: string }>(path: string, body: object): Promise<T> {

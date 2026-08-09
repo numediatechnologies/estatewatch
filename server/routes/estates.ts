@@ -3,6 +3,7 @@ import { query } from '../db.js';
 import { estateSchema } from '../types.js';
 import { mapEstateRow } from '../mappers.js';
 import { validate } from '../validate.js';
+import { readSession } from '../auth.js';
 
 export const estatesRouter = Router();
 
@@ -13,6 +14,24 @@ estatesRouter.get('/', async (_req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+estatesRouter.get('/:id/source', async (req, res) => {
+  try {
+    const session = readSession(req);
+    if (!session) return res.status(401).json({ error: 'Sign in to view the original Gazette PDF' });
+    let entitled = session.role === 'admin';
+    if (!entitled) {
+      const profile = await query(`SELECT subscription_status,subscription_expires_at FROM user_profiles WHERE auth_subject=$1`, [session.sub]);
+      const row = profile.rows[0];
+      entitled = row?.subscription_status === 'active' && (!row.subscription_expires_at || new Date(row.subscription_expires_at) > new Date());
+    }
+    if (!entitled) return res.status(403).json({ error: 'An active subscription is required to view the original Gazette PDF' });
+    const result = await query('SELECT source_url FROM estates WHERE id=$1', [req.params.id]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'Estate record not found' });
+    if (!result.rows[0].source_url) return res.status(404).json({ error: 'Original Gazette PDF is not available for this record' });
+    res.json({ url: result.rows[0].source_url });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 estatesRouter.get('/:id', async (req, res) => {

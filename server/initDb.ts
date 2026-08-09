@@ -130,6 +130,8 @@ export async function initializeDatabase() {
       );
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS phone_number VARCHAR(30);
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(30) NOT NULL DEFAULT 'inactive';
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP WITH TIME ZONE;
       CREATE TABLE IF NOT EXISTS registration_verifications (
         id UUID PRIMARY KEY,
         email VARCHAR(255) NOT NULL,

@@ -90,7 +90,7 @@ application.post('/api/auth/register/sms/verify', async (req, res) => {
     await query('UPDATE registration_verifications SET used_at=NOW() WHERE id=$1', [challengeId]);
     await query('UPDATE user_profiles SET phone_number=$1,phone_verified_at=NOW() WHERE auth_subject=$2', [challenge.phone_number, session.sub]);
     setSessionCookie(res, createSessionToken(session));
-    res.status(201).json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role } });
+    res.status(201).json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role, subscriptionActive: session.subscriptionActive } });
   } catch (error: any) { res.status(error.status || 400).json({ error: error.message }); }
 });
 application.post('/api/auth/login', async (req, res) => {
@@ -99,7 +99,7 @@ application.post('/api/auth/login', async (req, res) => {
     if (typeof email !== 'string' || typeof password !== 'string') return res.status(400).json({ error: 'Email and password are required' });
     const session = await authenticateWithNeon('sign-in', { email, password });
     setSessionCookie(res, createSessionToken(session));
-    res.json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role } });
+    res.json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role, subscriptionActive: session.subscriptionActive } });
   } catch (error: any) { res.status(error.status || 401).json({ error: error.message }); }
 });
 application.post('/api/auth/forgot-password', async (req, res) => {
@@ -127,7 +127,7 @@ application.post('/api/auth/reset-password', async (req, res) => {
 application.get('/api/auth/session', (req, res) => {
   const session = readSession(req);
   if (!session) return res.status(401).json({ user: null });
-  res.json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role } });
+  res.json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role, subscriptionActive: session.subscriptionActive } });
 });
 application.post('/api/auth/logout', (_req, res) => { clearSessionCookie(res); res.json({ success: true }); });
 application.get('/api/health', async (_req, res) => {

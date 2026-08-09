@@ -117,6 +117,8 @@ For accepted records the parser preserves estate number, deceased name, masked i
 
 Production alert criteria are deliberately limited to reliably published J193 fields: surname and province/Master's Office area. Estate value and asset type remain `Unknown` and are not offered as alert filters. Email is always the default notification channel; Clickatell SMS can be enabled per alert as a best-effort secondary channel and its failure never blocks email. Manual Firecrawl discovery, ingestion, and parser controls are visible only to administrators; uncertain records are rejected for review rather than enriched with invented data.
 
+Original Gazette PDF URLs are never included in public estate responses. Authenticated administrators and users with an active, unexpired subscription may request a source URL through `GET /api/estates/:id/source`. The API checks entitlement on every request; hiding the frontend button is not the security boundary. Non-subscribers see a clear upgrade prompt instead.
+
 Firecrawl discovery follows Gazette search pagination from page 1 up to a ten-page safety cap, stopping on an empty page or the first record outside the rolling four-month window. URLs are deduplicated during discovery, completed Gazette source URLs are skipped, estates are unique by source ID and estate number, and notifications are unique by alert, estate, and channel.
 
 The known launch fixture is Government Gazette 55077 part 1, published 31 July 2026. Its HOOSAIN entry is used in deterministic parser and alert tests. Test fixtures are source evidence, not fabricated production rows.

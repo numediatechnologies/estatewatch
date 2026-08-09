@@ -29,6 +29,7 @@ export const DEMO_ADMIN: UserAccount = {
   name: 'Sarah Jenkins (Admin)',
   role: 'admin',
   userPersona: 'attorney',
+  subscriptionActive: true,
 };
 
 export const DEMO_USER: UserAccount = {
@@ -37,6 +38,7 @@ export const DEMO_USER: UserAccount = {
   name: 'Marcus Vance (Subscriber)',
   role: 'user',
   userPersona: 'investor',
+  subscriptionActive: false,
 };
 
 export const LoginModal: React.FC<LoginModalProps> = ({

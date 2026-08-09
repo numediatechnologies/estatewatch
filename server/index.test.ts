@@ -25,6 +25,13 @@ describe('Firecrawl API', () => {
     expect((await request(app).post('/api/auth/register/sms/verify').send({ code: '12', password: 'short' })).status).toBe(400);
   });
 
+  it('keeps original Gazette PDFs behind authentication', async () => {
+    const app = createApp({ discover: vi.fn(), createClient: () => ({}) as FirecrawlDiscoveryClient, ingest: vi.fn() });
+    const response = await request(app).get('/api/estates/estate-1/source');
+    expect(response.status).toBe(401);
+    expect(response.body.error).toContain('Sign in');
+  });
+
   it('protects Firecrawl endpoints when an admin token is configured', async () => {
     const previous = process.env.ADMIN_API_TOKEN;
     process.env.ADMIN_API_TOKEN = 'test-secret';

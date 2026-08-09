@@ -162,6 +162,7 @@ export interface UserAccount {
   role: SystemRole;
   userPersona: UserRole;
   avatarUrl?: string;
+  subscriptionActive?: boolean;
 }
 
 export interface ScraperPipelineResult {
