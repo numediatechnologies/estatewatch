@@ -82,7 +82,7 @@ INGESTION_INCIDENT_EMAIL     optional operations recipient; defaults to ADMIN_EM
 NEON_AUTH_BASE_URL           Neon Auth server URL
 ```
 
-Contact requests are written to the MarketDirect leads CRM before the sales email is sent. The CRM creates an open follow-up task; its existing daily reminder process sends email and, when Twilio is configured, SMS reminders. If either CRM or email delivery fails, EstateWatch reports a retryable error rather than claiming success.
+Contact requests are written to the MarketDirect leads CRM before the sales email is sent. The CRM creates an open follow-up task; its existing daily reminder process sends email and, when Clickatell is configured, SMS reminders. If either CRM or email delivery fails, EstateWatch reports a retryable error rather than claiming success.
 
 Build-time browser configuration:
 
