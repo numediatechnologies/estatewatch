@@ -13,7 +13,7 @@ import { initializeDatabase } from './initDb.js';
 import { authenticateWithNeon, clearSessionCookie, createSessionToken, readSession, requestPasswordResetWithNeon, resetPasswordWithNeon, setSessionCookie } from './auth.js';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { normalizeSmsRecipient, sendVerificationSms } from './smsService.js';
-import { sendIngestionFailureEmail } from './emailService.js';
+import { sendIngestionFailureEmail, sendTestEmail } from './emailService.js';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -51,10 +51,10 @@ application.use(cors());
 application.use(express.json({ limit: '1mb' }));
 application.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, name, verificationMethod = 'email' } = req.body || {};
+    const { email, password, name, companyName, verificationMethod = 'email' } = req.body || {};
     if (typeof email !== 'string' || typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: 'A valid email and password of at least 8 characters are required' });
     if (verificationMethod !== 'email') return res.status(400).json({ error: 'Use the SMS verification start endpoint for mobile verification' });
-    const session = await authenticateWithNeon('sign-up', { email, password, name });
+    const session = await authenticateWithNeon('sign-up', { email, password, name, companyName });
     res.status(202).json({ success: true, verificationRequired: true, method: 'email', message: `Great! Check ${session.email} and follow the verification link, then sign in.` });
   } catch (error: any) { res.status(error.status || 400).json({ error: error.message }); }
 });
@@ -80,18 +80,18 @@ application.post('/api/auth/register/sms/start', async (req, res) => {
 });
 application.post('/api/auth/register/sms/verify', async (req, res) => {
   try {
-    const { challengeId, code, email, password, name } = req.body || {};
+    const { challengeId, code, email, password, name, companyName } = req.body || {};
     if (!/^[0-9]{6}$/.test(String(code || '')) || typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: 'Enter the six-digit code and a password of at least 8 characters' });
     const result = await query(`SELECT * FROM registration_verifications WHERE id=$1 AND used_at IS NULL`, [challengeId]);
     const challenge = result.rows[0];
     if (!challenge || challenge.expires_at < new Date() || challenge.attempts >= 5 || challenge.email !== String(email).toLowerCase()) return res.status(400).json({ error: 'That code is invalid or expired. Request a new code.' });
     const expected = Buffer.from(challenge.code_hash); const actual = Buffer.from(verificationHash(challengeId, String(code)));
     if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) { await query('UPDATE registration_verifications SET attempts=attempts+1 WHERE id=$1', [challengeId]); return res.status(400).json({ error: 'That code is incorrect.' }); }
-    const session = await authenticateWithNeon('sign-up', { email: challenge.email, password, name });
+    const session = await authenticateWithNeon('sign-up', { email: challenge.email, password, name, companyName });
     await query('UPDATE registration_verifications SET used_at=NOW() WHERE id=$1', [challengeId]);
     await query('UPDATE user_profiles SET phone_number=$1,phone_verified_at=NOW() WHERE auth_subject=$2', [challenge.phone_number, session.sub]);
     setSessionCookie(res, createSessionToken(session));
-    res.status(201).json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role, subscriptionActive: session.subscriptionActive } });
+    res.status(201).json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role, subscriptionActive: session.subscriptionActive, companyName: session.companyName } });
   } catch (error: any) { res.status(error.status || 400).json({ error: error.message }); }
 });
 application.post('/api/auth/login', async (req, res) => {
@@ -100,7 +100,7 @@ application.post('/api/auth/login', async (req, res) => {
     if (typeof email !== 'string' || typeof password !== 'string') return res.status(400).json({ error: 'Email and password are required' });
     const session = await authenticateWithNeon('sign-in', { email, password });
     setSessionCookie(res, createSessionToken(session));
-    res.json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role, subscriptionActive: session.subscriptionActive } });
+    res.json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role, subscriptionActive: session.subscriptionActive, companyName: session.companyName } });
   } catch (error: any) { res.status(error.status || 401).json({ error: error.message }); }
 });
 application.post('/api/auth/forgot-password', async (req, res) => {
@@ -128,7 +128,7 @@ application.post('/api/auth/reset-password', async (req, res) => {
 application.get('/api/auth/session', (req, res) => {
   const session = readSession(req);
   if (!session) return res.status(401).json({ user: null });
-  res.json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role, subscriptionActive: session.subscriptionActive } });
+  res.json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role, subscriptionActive: session.subscriptionActive, companyName: session.companyName } });
 });
 application.post('/api/auth/logout', (_req, res) => { clearSessionCookie(res); res.json({ success: true }); });
 application.get('/api/health', async (_req, res) => {
@@ -178,6 +178,42 @@ application.post('/api/admin/migrate', requireAdmin, async (_req, res) => {
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
+});
+application.get('/api/admin/settings', requireAdmin, async (_req, res) => {
+  try {
+    await query(`CREATE TABLE IF NOT EXISTS app_settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value TEXT NOT NULL, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)`);
+    const result = await query(`SELECT setting_key, setting_value FROM app_settings WHERE setting_key = ANY($1::text[])`, [['legalCompanyName', 'tradingName', 'notificationEmail']]);
+    const values = Object.fromEntries(result.rows.map((row: any) => [row.setting_key, row.setting_value]));
+    res.json({
+      legalCompanyName: values.legalCompanyName || 'NuMedia Direct Marketing (Pty) Ltd',
+      tradingName: values.tradingName || 'EstateWatch',
+      notificationEmail: values.notificationEmail || process.env.ADMIN_EMAIL || '',
+      adminEmail: process.env.ADMIN_EMAIL || '',
+      resendConfigured: Boolean(process.env.RESEND_API_KEY),
+      neonAuthConfigured: Boolean(process.env.NEON_AUTH_BASE_URL),
+    });
+  } catch (error: any) { res.status(500).json({ error: error.message }); }
+});
+application.patch('/api/admin/settings', requireAdmin, async (req, res) => {
+  try {
+    await query(`CREATE TABLE IF NOT EXISTS app_settings (setting_key VARCHAR(100) PRIMARY KEY, setting_value TEXT NOT NULL, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)`);
+    const legalCompanyName = String(req.body?.legalCompanyName || '').trim();
+    const tradingName = String(req.body?.tradingName || '').trim();
+    const notificationEmail = String(req.body?.notificationEmail || '').trim().toLowerCase();
+    if (legalCompanyName.length < 2 || legalCompanyName.length > 255) return res.status(400).json({ error: 'Enter a valid legal company name' });
+    if (tradingName.length < 2 || tradingName.length > 255) return res.status(400).json({ error: 'Enter a valid trading name' });
+    if (!/^\S+@\S+\.\S+$/.test(notificationEmail)) return res.status(400).json({ error: 'Enter a valid notification email address' });
+    for (const [key, value] of [['legalCompanyName', legalCompanyName], ['tradingName', tradingName], ['notificationEmail', notificationEmail]]) {
+      await query(`INSERT INTO app_settings(setting_key, setting_value, updated_at) VALUES($1,$2,NOW()) ON CONFLICT(setting_key) DO UPDATE SET setting_value=EXCLUDED.setting_value, updated_at=NOW()`, [key, value]);
+    }
+    res.json({ legalCompanyName, tradingName, notificationEmail, adminEmail: process.env.ADMIN_EMAIL || '', resendConfigured: Boolean(process.env.RESEND_API_KEY), neonAuthConfigured: Boolean(process.env.NEON_AUTH_BASE_URL) });
+  } catch (error: any) { res.status(500).json({ error: error.message }); }
+});
+application.post('/api/admin/settings/test-email', requireAdmin, async (req, res) => {
+  const to = String(req.body?.to || '').trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(to)) return res.status(400).json({ error: 'Enter a valid test email address' });
+  const result = await sendTestEmail(to);
+  res.status(result.success ? 200 : 502).json(result);
 });
 application.get('/api/cron/ingest', requireCron, async (_req, res) => {
   try {

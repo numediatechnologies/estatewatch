@@ -35,6 +35,7 @@ import { EstatesFeedView } from './components/EstatesFeedView';
 import { AlertBuilderView } from './components/AlertBuilderView';
 import { PipelineCrmView } from './components/PipelineCrmView';
 import { IngestionScannerView } from './components/IngestionScannerView';
+import { AdminSettingsView } from './components/AdminSettingsView';
 import { AdminScraperView } from './components/AdminScraperView';
 import { PopiaComplianceView } from './components/PopiaComplianceView';
 import { BillingView } from './components/BillingView';
@@ -59,7 +60,7 @@ export function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.has('reset-password')) setShowLoginModal(true);
     void restoreNeonSession().then((user) => {
-      if (user) setCurrentUser({ id: user.id, email: user.email, name: user.name, role: user.role, subscriptionActive: user.subscriptionActive, userPersona: 'attorney' });
+      if (user) setCurrentUser({ id: user.id, email: user.email, name: user.name, role: user.role, subscriptionActive: user.subscriptionActive, userPersona: 'attorney', companyName: user.companyName });
     });
   }, []);
 
@@ -376,6 +377,12 @@ export function App() {
                 <p className="text-slate-400 mb-6">Gazette ingestion and parser controls are restricted to administrators.</p>
                 <button onClick={() => setShowLoginModal(true)} className="bg-amber-500 text-slate-950 px-6 py-2 rounded-xl font-semibold">Administrator sign in</button>
               </div>
+            )
+          )}
+
+          {activeTab === 'adminSettings' && (
+            currentUser?.role === 'admin' ? <AdminSettingsView /> : (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center"><Bot className="w-12 h-12 text-amber-400 mx-auto mb-4" /><h3 className="text-xl font-bold text-white mb-2">Administrator access required</h3><p className="text-slate-400">Company and delivery settings are restricted to administrators.</p></div>
             )
           )}
 

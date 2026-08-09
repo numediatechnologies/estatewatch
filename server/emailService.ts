@@ -62,3 +62,18 @@ export async function sendIngestionFailureEmail(errorMessage: string) {
   if (error) return { success: false, error: error.message };
   return { success: true, messageId: data?.id, recipient: to };
 }
+
+export async function sendTestEmail(to: string) {
+  if (!process.env.RESEND_API_KEY) return { success: false, error: 'RESEND_API_KEY not configured' };
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const from = process.env.RESEND_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>';
+  const { data, error } = await resend.emails.send({
+    from,
+    to: [to],
+    subject: 'EstateWatch delivery test',
+    html: '<!doctype html><html><body style="font-family:Arial,sans-serif;color:#0f172a"><h1>EstateWatch delivery test</h1><p>This confirms that operational email delivery is working.</p><p>Authentication verification and password-reset emails are handled separately by Neon Auth.</p></body></html>',
+    text: 'EstateWatch delivery test\n\nThis confirms that operational email delivery is working. Authentication verification and password-reset emails are handled separately by Neon Auth.',
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: true, messageId: data?.id, recipient: to };
+}

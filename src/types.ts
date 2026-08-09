@@ -164,6 +164,7 @@ export interface UserAccount {
   userPersona: UserRole;
   avatarUrl?: string;
   subscriptionActive?: boolean;
+  companyName?: string;
 }
 
 export interface ScraperPipelineResult {

@@ -13,6 +13,7 @@ export interface AppSession {
   name: string;
   role: 'user' | 'admin';
   subscriptionActive?: boolean;
+  companyName?: string;
   exp: number;
 }
 
@@ -95,7 +96,7 @@ export function clearSessionCookie(res: Response) {
   res.clearCookie(COOKIE_NAME, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' });
 }
 
-export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string }, transport: AuthTransport = postAuthJson) {
+export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string; companyName?: string }, transport: AuthTransport = postAuthJson) {
   const requestBody = mode === 'sign-up' ? { ...body, callbackURL: process.env.APP_URL || '/' } : body;
   const result = await callNeonAuth(`${mode}/email`, requestBody, transport);
   const user = result.user;
@@ -103,12 +104,14 @@ export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { 
   const email = String(user.email).toLowerCase();
   const role = roleForEmail(email);
   const name = user.name || body.name || email.split('@')[0];
-  const profile = await query(`INSERT INTO user_profiles(auth_subject,email,display_name,role) VALUES($1,$2,$3,$4)
-    ON CONFLICT(auth_subject) DO UPDATE SET email=EXCLUDED.email,display_name=EXCLUDED.display_name,role=EXCLUDED.role
-    RETURNING subscription_status,subscription_expires_at`, [user.id, email, name, role]);
+  await query('ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS company_name VARCHAR(255)');
+  const companyName = body.companyName?.trim() || undefined;
+  const profile = await query(`INSERT INTO user_profiles(auth_subject,email,display_name,company_name,role) VALUES($1,$2,$3,$4,$5)
+    ON CONFLICT(auth_subject) DO UPDATE SET email=EXCLUDED.email,display_name=EXCLUDED.display_name,company_name=COALESCE(EXCLUDED.company_name,user_profiles.company_name),role=EXCLUDED.role
+    RETURNING subscription_status,subscription_expires_at,company_name`, [user.id, email, name, companyName || null, role]);
   const row = profile.rows?.[0];
   const subscriptionActive = role === 'admin' || (row?.subscription_status === 'active' && (!row.subscription_expires_at || new Date(row.subscription_expires_at) > new Date()));
-  return { sub: user.id as string, email, name, role, subscriptionActive };
+  return { sub: user.id as string, email, name, role, subscriptionActive, companyName: row?.company_name || companyName };
 }
 
 export async function requestPasswordResetWithNeon(email: string, transport: AuthTransport = postAuthJson) {

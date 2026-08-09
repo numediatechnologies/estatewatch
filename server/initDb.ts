@@ -127,10 +127,12 @@ export async function initializeDatabase() {
         auth_subject VARCHAR(255) PRIMARY KEY,
         email VARCHAR(255) NOT NULL,
         display_name VARCHAR(255),
+        company_name VARCHAR(255),
         role VARCHAR(30) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS phone_number VARCHAR(30);
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS company_name VARCHAR(255);
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(30) NOT NULL DEFAULT 'inactive';
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP WITH TIME ZONE;
@@ -145,6 +147,11 @@ export async function initializeDatabase() {
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS registration_verifications_email_idx ON registration_verifications(email, created_at DESC);
+      CREATE TABLE IF NOT EXISTS app_settings (
+        setting_key VARCHAR(100) PRIMARY KEY,
+        setting_value TEXT NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // 5. Ingestion Logs Table

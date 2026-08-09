@@ -51,6 +51,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [success, setSuccess] = useState('');
@@ -94,7 +95,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         return;
       }
       if (mode === 'register' && verificationMethod === 'email') {
-        const result = await registerWithEmail(name, email, password);
+        const result = await registerWithEmail(name, companyName, email, password);
         setSuccess(result.message); setPassword(''); return;
       }
       if (mode === 'register' && verificationMethod === 'sms' && !smsChallengeId) {
@@ -102,9 +103,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         setSmsChallengeId(result.challengeId); setSuccess(result.message); return;
       }
       const user = mode === 'register'
-        ? await verifySmsRegistration(smsChallengeId, smsCode, name, email, password)
+        ? await verifySmsRegistration(smsChallengeId, smsCode, name, companyName, email, password)
         : await signInWithNeon(email, password);
-      onLogin({ id: user.id, email: user.email, name: user.name || user.email.split('@')[0], role: user.role, userPersona: selectedPersona });
+      onLogin({ id: user.id, email: user.email, name: user.name || user.email.split('@')[0], role: user.role, userPersona: selectedPersona, companyName: user.companyName });
       onClose();
     } catch (err: any) { setError(err.message || 'Sign-in failed'); }
     finally { setSubmitting(false); }
@@ -229,6 +230,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               {mode === 'register' && <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-300">Full Name</label>
                 <input required type="text" minLength={2} placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
+              </div>}
+              {mode === 'register' && <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300">Company / organisation</label>
+                <input required type="text" minLength={2} maxLength={255} placeholder="Your company or organisation" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
               </div>}
               {mode === 'register' && <div className="space-y-2">
                 <label className="text-xs font-semibold text-slate-300">How should we verify you?</label>

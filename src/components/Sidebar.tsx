@@ -5,6 +5,7 @@ import {
   BellRing,
   Briefcase,
   Cpu,
+  Settings,
   ShieldCheck,
   CreditCard,
   Building2,
@@ -19,6 +20,7 @@ export type TabType =
   | 'alerts'
   | 'pipeline'
   | 'ingestion'
+  | 'adminSettings'
   | 'admin'
   | 'popia'
   | 'billing';
@@ -44,6 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'alerts', label: 'Set an alert', icon: <BellRing className="w-4 h-4" /> },
     { id: 'pipeline', label: 'Saved opportunities', icon: <Briefcase className="w-4 h-4" />, badge: pipelineCount },
     ...(isAdmin ? [{ id: 'ingestion' as TabType, label: 'Admin Ingestion', icon: <Cpu className="w-4 h-4" /> }] : []),
+    ...(isAdmin ? [{ id: 'adminSettings' as TabType, label: 'Admin Settings', icon: <Settings className="w-4 h-4" /> }] : []),
     { id: 'popia', label: 'POPIA & Legal Basis', icon: <ShieldCheck className="w-4 h-4" /> },
     { id: 'billing', label: 'Subscription & Plans', icon: <CreditCard className="w-4 h-4" /> },
   ];
