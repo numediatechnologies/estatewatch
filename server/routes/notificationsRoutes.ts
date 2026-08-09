@@ -38,6 +38,7 @@ notificationsRouter.post('/send-email', validate(sendEmailSchema), async (req, r
     const emailResult = await sendEstateAlertEmail({
       to: recipientEmail,
       subject: `[EstateWatch Alert] Match Found: ${estate.deceasedName} (${estate.estateNumber})`,
+      estateId: estate.id,
       estateName: estate.deceasedName,
       estateNumber: estate.estateNumber,
       province: estate.province,

@@ -99,7 +99,7 @@ The known launch fixture is Government Gazette 55077 part 1, published 31 July 2
 
 ## Email delivery
 
-Resend sends responsive HTML and independently rendered plain text. Messages include a personalized or professional fallback greeting, exact match reasons, verified Gazette fields, masked identity data, source attribution, CTA, and POPIA footer. Gazette-derived text is HTML-escaped. Notification state is recorded as `queued`, `sent`, or `failed`, including provider message ID, attempts, errors, and timestamps.
+Resend sends responsive HTML and independently rendered plain text. Messages include a personalized or professional fallback greeting, exact match reasons, verified Gazette fields, masked identity data, source attribution, CTA, and POPIA footer. Each CTA deep-links to the exact persisted estate record (`?estate=<id>`), which opens the online detail view directly. Gazette-derived text is HTML-escaped. Notification state is recorded as `queued`, `sent`, or `failed`, including provider message ID, attempts, errors, and timestamps.
 
 The current sender domain must have verified SPF and DKIM. Click tracking remains disabled while its tracking DNS record is unresolved.
 

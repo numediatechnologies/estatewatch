@@ -58,6 +58,7 @@ export async function recordMatches(
       const emailResult = await sendEstateAlertEmail({
         to: recipient,
         subject: `[EstateWatch Alert] Match Found: ${estate.deceasedName} (${estate.estateNumber})`,
+        estateId: estate.id,
         estateName: estate.deceasedName,
         estateNumber: estate.estateNumber,
         province: estate.province,

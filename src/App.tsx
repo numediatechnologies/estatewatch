@@ -14,6 +14,7 @@ import { INITIAL_PIPELINE } from './data/mockPipeline';
 import {
   fetchHealthCheck,
   fetchEstates,
+  fetchEstate,
   fetchAlerts,
   createAlert as createAlertApi,
   toggleAlert as toggleAlertApi,
@@ -56,6 +57,18 @@ export function App() {
     void restoreNeonSession().then((user) => {
       if (user) setCurrentUser({ id: user.id, email: user.email, name: user.name, role: user.role, userPersona: 'attorney' });
     });
+  }, []);
+
+  useEffect(() => {
+    const estateId = new URLSearchParams(window.location.search).get('estate');
+    if (!estateId) return;
+    let active = true;
+    void fetchEstate(estateId).then((estate) => {
+      if (!active || !estate) return;
+      setSelectedEstate(estate);
+      setActiveTab('estates');
+    });
+    return () => { active = false; };
   }, []);
 
   // Core Data State (Initialized with mocks, updated from Neon DB)
@@ -368,7 +381,14 @@ export function App() {
       {selectedEstate && (
         <EstateDetailModal
           estate={selectedEstate}
-          onClose={() => setSelectedEstate(null)}
+          onClose={() => {
+            setSelectedEstate(null);
+            const url = new URL(window.location.href);
+            if (url.searchParams.has('estate')) {
+              url.searchParams.delete('estate');
+              window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+            }
+          }}
           onAddToPipeline={handleAddToPipeline}
           isInPipeline={pipelineEstateIds.includes(selectedEstate.id)}
         />

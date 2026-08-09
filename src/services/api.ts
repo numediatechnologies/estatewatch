@@ -25,6 +25,17 @@ export async function fetchEstates(): Promise<DeceasedEstate[] | null> {
   }
 }
 
+export async function fetchEstate(id: string): Promise<DeceasedEstate | null> {
+  try {
+    const res = await apiFetch(`${API_BASE}/estates/${encodeURIComponent(id)}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('Unable to load linked estate record:', err);
+    return null;
+  }
+}
+
 export async function createEstate(estate: DeceasedEstate): Promise<DeceasedEstate | null> {
   try {
     const res = await apiFetch(`${API_BASE}/estates`, {

@@ -15,6 +15,16 @@ estatesRouter.get('/', async (_req, res) => {
   }
 });
 
+estatesRouter.get('/:id', async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM estates WHERE id = $1', [req.params.id]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'Estate record not found' });
+    res.json(mapEstateRow(result.rows[0]));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 estatesRouter.post('/', validate(estateSchema), async (req, res) => {
   try {
     const e = req.body;
