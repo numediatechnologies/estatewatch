@@ -13,7 +13,7 @@ import { initializeDatabase } from './initDb.js';
 import { authenticateWithNeon, clearSessionCookie, createSessionToken, readSession, requestPasswordResetWithNeon, resetPasswordWithNeon, setSessionCookie } from './auth.js';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { normalizeSmsRecipient, sendVerificationSms } from './smsService.js';
-import { sendIngestionFailureEmail, sendTestEmail } from './emailService.js';
+import { sendContactMessage, sendIngestionFailureEmail, sendTestEmail } from './emailService.js';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -57,6 +57,24 @@ application.post('/api/auth/register', async (req, res) => {
     const session = await authenticateWithNeon('sign-up', { email, password, name, companyName });
     res.status(202).json({ success: true, verificationRequired: true, method: 'email', message: `Great! Check ${session.email} and follow the verification link, then sign in.` });
   } catch (error: any) { res.status(error.status || 400).json({ error: error.message }); }
+});
+application.post('/api/contact', async (req, res) => {
+  try {
+    if (String(req.body?.website || '').trim()) return res.json({ success: true, message: 'Thanks — your message has been received.' });
+    const name = String(req.body?.name || '').trim();
+    const company = String(req.body?.company || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const phone = String(req.body?.phone || '').trim();
+    const enquiry = String(req.body?.enquiry || '').trim();
+    const message = String(req.body?.message || '').trim();
+    if (name.length < 2) return res.status(400).json({ error: 'Please enter your name.' });
+    if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
+    if (!enquiry) return res.status(400).json({ error: 'Please select an enquiry type.' });
+    if (message.length < 10) return res.status(400).json({ error: 'Please add at least 10 characters to your message.' });
+    const result = await sendContactMessage({ name, company, email, phone, enquiry, message });
+    if (!result.success) return res.status(502).json({ error: result.error || 'Contact email could not be sent.' });
+    res.json({ success: true, message: 'Thanks — your message has been sent to the EstateWatch team.' });
+  } catch (error: any) { res.status(500).json({ error: error.message || 'Contact email could not be sent.' }); }
 });
 const verificationHash = (id: string, code: string) => {
   const secret = process.env.AUTH_SESSION_SECRET || process.env.ADMIN_API_TOKEN;

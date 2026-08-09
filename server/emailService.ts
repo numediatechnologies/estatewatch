@@ -77,3 +77,22 @@ export async function sendTestEmail(to: string) {
   if (error) return { success: false, error: error.message };
   return { success: true, messageId: data?.id, recipient: to };
 }
+
+export async function sendContactMessage(params: { name: string; company?: string; email: string; phone?: string; enquiry: string; message: string }) {
+  if (!process.env.RESEND_API_KEY) return { success: false, error: 'RESEND_API_KEY not configured' };
+  const recipient = 'sales@marketdirect.co.za';
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const safe = (value: string) => escapeHtml(value || 'Not provided');
+  const html = `<h2>New EstateWatch contact request</h2><p><strong>Name:</strong> ${safe(params.name)}</p><p><strong>Company:</strong> ${safe(params.company || '')}</p><p><strong>Email:</strong> ${safe(params.email)}</p><p><strong>Phone:</strong> ${safe(params.phone || '')}</p><p><strong>Enquiry:</strong> ${safe(params.enquiry)}</p><p><strong>Message:</strong><br>${safe(params.message).replace(/\n/g, '<br>')}</p>`;
+  const text = `New EstateWatch contact request\n\nName: ${params.name}\nCompany: ${params.company || 'Not provided'}\nEmail: ${params.email}\nPhone: ${params.phone || 'Not provided'}\nEnquiry: ${params.enquiry}\n\nMessage:\n${params.message}`;
+  const { data, error } = await resend.emails.send({
+    from: process.env.RESEND_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>',
+    to: [recipient],
+    replyTo: params.email,
+    subject: `EstateWatch contact request: ${params.enquiry}`,
+    html,
+    text,
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: true, messageId: data?.id, recipient };
+}

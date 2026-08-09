@@ -36,6 +36,7 @@ import { AlertBuilderView } from './components/AlertBuilderView';
 import { PipelineCrmView } from './components/PipelineCrmView';
 import { IngestionScannerView } from './components/IngestionScannerView';
 import { AdminSettingsView } from './components/AdminSettingsView';
+import { EstateWatchFooter } from './components/EstateWatchFooter';
 import { AdminScraperView } from './components/AdminScraperView';
 import { PopiaComplianceView } from './components/PopiaComplianceView';
 import { BillingView } from './components/BillingView';
@@ -417,6 +418,8 @@ export function App() {
         </main>
 
       </div>
+
+      <EstateWatchFooter />
 
       {/* Detail Modal */}
       {selectedEstate && (
