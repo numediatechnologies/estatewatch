@@ -68,8 +68,13 @@ DATABASE_URL                 Neon pooled PostgreSQL connection string
 FIRECRAWL_API_KEY            Firecrawl server API key
 RESEND_API_KEY               Resend server API key
 RESEND_FROM                  e.g. EstateWatch <alerts@tenders.marketdirect.co.za>
+ZEPTOMAIL_TOKEN              ZeptoMail Send Mail Token (server-only fallback)
+ZEPTOMAIL_FROM               e.g. EstateWatch <noreply@marketdirect.co.za>
+EMAIL_FROM                   optional common sender override for both providers
+EMAIL_PROVIDER               auto (default), resend, or zeptomail
 LEADS_CONTACT_WEBHOOK_URL    MarketDirect leads CRM contact-ingest endpoint
 LEADS_CONTACT_WEBHOOK_KEY    shared secret for the CRM contact-ingest endpoint
+CORS_ALLOWED_ORIGINS         comma-separated trusted browser origins
 CLICKATELL_API_KEY           optional Clickatell key for secondary SMS alerts
 APP_URL                      canonical public application URL
 ADMIN_API_TOKEN              bearer token for administrative APIs
@@ -83,6 +88,8 @@ NEON_AUTH_BASE_URL           Neon Auth server URL
 ```
 
 Contact requests are written to the MarketDirect leads CRM before the sales email is sent. The CRM creates an open follow-up task; its existing daily reminder process sends email and, when Clickatell is configured, SMS reminders. If either CRM or email delivery fails, EstateWatch reports a retryable error rather than claiming success.
+
+The public contact endpoint accepts only the documented enquiry types, applies field-size limits, emits security and rate-limit headers, and throttles repeated requests per source address. It is intended for ordinary business contact details only; do not submit passwords, full identity numbers, banking details or confidential legal documents.
 
 Build-time browser configuration:
 
@@ -145,7 +152,7 @@ The known launch fixture is Government Gazette 55077 part 1, published 31 July 2
 
 ## Email delivery
 
-Resend sends responsive HTML and independently rendered plain text. Messages include a personalized or professional fallback greeting, exact match reasons, verified Gazette fields, masked identity data, source attribution, CTA, and POPIA footer. Each CTA deep-links to the exact persisted estate record (`?estate=<id>`), which opens the online detail view directly. Gazette-derived text is HTML-escaped. Notification state is recorded as `queued`, `sent`, or `failed`, including provider message ID, attempts, errors, and timestamps.
+EstateWatch sends responsive HTML and independently rendered plain text. In `auto` mode, Resend is tried first and ZeptoMail is used if Resend is unavailable or returns an error. Set `EMAIL_PROVIDER=zeptomail` to use ZeptoMail directly. Messages include a personalized or professional fallback greeting, exact match reasons, verified Gazette fields, masked identity data, source attribution, CTA, and POPIA footer. Each CTA deep-links to the exact persisted estate record (`?estate=<id>`), which opens the online detail view directly. Gazette-derived text is HTML-escaped. Notification state is recorded as `queued`, `sent`, or `failed`, including provider message ID, attempts, errors, and timestamps.
 
 The current sender domain must have verified SPF and DKIM. Click tracking remains disabled while its tracking DNS record is unresolved.
 

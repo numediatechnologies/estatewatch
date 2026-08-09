@@ -81,7 +81,13 @@ describe('Firecrawl API', () => {
 
   it('makes flagged cron runs visible to the scheduler', async () => {
     const previous = process.env.CRON_SECRET;
+    const previousIncidentEmail = process.env.INGESTION_INCIDENT_EMAIL;
+    const previousResend = process.env.RESEND_API_KEY;
+    const previousZepto = process.env.ZEPTOMAIL_TOKEN;
     process.env.CRON_SECRET = 'cron-test-secret';
+    delete process.env.INGESTION_INCIDENT_EMAIL;
+    delete process.env.RESEND_API_KEY;
+    delete process.env.ZEPTOMAIL_TOKEN;
     const flagged = emptyIngestResult();
     flagged.status = 'flagged';
     flagged.errors.push({ url: 'discovery', error: 'temporary provider outage' });
@@ -90,5 +96,8 @@ describe('Firecrawl API', () => {
     expect(response.status).toBe(502);
     expect(response.body).toMatchObject({ success: false, incident: { operatorNotified: false } });
     if (previous === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = previous;
+    if (previousIncidentEmail === undefined) delete process.env.INGESTION_INCIDENT_EMAIL; else process.env.INGESTION_INCIDENT_EMAIL = previousIncidentEmail;
+    if (previousResend === undefined) delete process.env.RESEND_API_KEY; else process.env.RESEND_API_KEY = previousResend;
+    if (previousZepto === undefined) delete process.env.ZEPTOMAIL_TOKEN; else process.env.ZEPTOMAIL_TOKEN = previousZepto;
   });
 });

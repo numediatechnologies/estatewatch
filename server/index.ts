@@ -15,6 +15,7 @@ import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto'
 import { normalizeSmsRecipient, sendVerificationSms } from './smsService.js';
 import { sendContactMessage, sendIngestionFailureEmail, sendTestEmail } from './emailService.js';
 import { buildMarketDirectContactPayload, sendContactToMarketDirectCrm } from './leadCrmService.js';
+import { ALLOWED_CONTACT_ENQUIRIES, applySecurityHeaders, CONTACT_FIELD_LIMITS, consumeContactRateLimit } from './security.js';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -48,7 +49,10 @@ export function createApp(dependencies: AppDependencies = {
   ingest: runIngestion,
 }) {
 const application = express();
-application.use(cors());
+application.set('trust proxy', true);
+application.use((_req, res, next) => { applySecurityHeaders(res); next(); });
+const allowedOrigins = new Set((process.env.CORS_ALLOWED_ORIGINS || 'https://estatewatch.marketdirect.co.za,http://localhost:3000,http://127.0.0.1:3000').split(',').map(origin => origin.trim()).filter(Boolean));
+application.use(cors({ origin: (origin, callback) => callback(null, !origin || allowedOrigins.has(origin)), credentials: true }));
 application.use(express.json({ limit: '1mb' }));
 application.post('/api/auth/register', async (req, res) => {
   try {
@@ -62,16 +66,19 @@ application.post('/api/auth/register', async (req, res) => {
 application.post('/api/contact', async (req, res) => {
   try {
     if (String(req.body?.website || '').trim()) return res.json({ success: true, message: 'Thanks — your message has been received.' });
+    if (!consumeContactRateLimit(req, res)) return res.status(429).json({ error: 'Too many contact requests. Please wait a few minutes and try again.' });
     const name = String(req.body?.name || '').trim();
     const company = String(req.body?.company || '').trim();
     const email = String(req.body?.email || '').trim().toLowerCase();
     const phone = String(req.body?.phone || '').trim();
     const enquiry = String(req.body?.enquiry || '').trim();
     const message = String(req.body?.message || '').trim();
-    if (name.length < 2) return res.status(400).json({ error: 'Please enter your name.' });
-    if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
-    if (!enquiry) return res.status(400).json({ error: 'Please select an enquiry type.' });
-    if (message.length < 10) return res.status(400).json({ error: 'Please add at least 10 characters to your message.' });
+    if (name.length < 2 || name.length > CONTACT_FIELD_LIMITS.name) return res.status(400).json({ error: `Name must be between 2 and ${CONTACT_FIELD_LIMITS.name} characters.` });
+    if (company.length > CONTACT_FIELD_LIMITS.company) return res.status(400).json({ error: `Company name is limited to ${CONTACT_FIELD_LIMITS.company} characters.` });
+    if (!/^\S+@\S+\.\S+$/.test(email) || email.length > CONTACT_FIELD_LIMITS.email) return res.status(400).json({ error: 'Please enter a valid email address.' });
+    if (phone.length > CONTACT_FIELD_LIMITS.phone) return res.status(400).json({ error: `Phone number is limited to ${CONTACT_FIELD_LIMITS.phone} characters.` });
+    if (!ALLOWED_CONTACT_ENQUIRIES.has(enquiry) || enquiry.length > CONTACT_FIELD_LIMITS.enquiry) return res.status(400).json({ error: 'Please select a valid enquiry type.' });
+    if (message.length < 10 || message.length > CONTACT_FIELD_LIMITS.message) return res.status(400).json({ error: `Message must be between 10 and ${CONTACT_FIELD_LIMITS.message} characters.` });
     const submissionId = randomUUID();
     const crmPayload = buildMarketDirectContactPayload({ name, company, email, phone, enquiry, message, submissionId, followUpPriority: req.body?.followUpPriority });
     const crmResult = await sendContactToMarketDirectCrm(crmPayload);
@@ -213,6 +220,8 @@ application.get('/api/admin/settings', requireAdmin, async (_req, res) => {
       notificationEmail: values.notificationEmail || process.env.ADMIN_EMAIL || '',
       adminEmail: process.env.ADMIN_EMAIL || '',
       resendConfigured: Boolean(process.env.RESEND_API_KEY),
+      zeptomailConfigured: Boolean(process.env.ZEPTOMAIL_TOKEN),
+      emailProvider: process.env.EMAIL_PROVIDER || 'auto',
       neonAuthConfigured: Boolean(process.env.NEON_AUTH_BASE_URL),
     });
   } catch (error: any) { res.status(500).json({ error: error.message }); }
@@ -229,7 +238,7 @@ application.patch('/api/admin/settings', requireAdmin, async (req, res) => {
     for (const [key, value] of [['legalCompanyName', legalCompanyName], ['tradingName', tradingName], ['notificationEmail', notificationEmail]]) {
       await query(`INSERT INTO app_settings(setting_key, setting_value, updated_at) VALUES($1,$2,NOW()) ON CONFLICT(setting_key) DO UPDATE SET setting_value=EXCLUDED.setting_value, updated_at=NOW()`, [key, value]);
     }
-    res.json({ legalCompanyName, tradingName, notificationEmail, adminEmail: process.env.ADMIN_EMAIL || '', resendConfigured: Boolean(process.env.RESEND_API_KEY), neonAuthConfigured: Boolean(process.env.NEON_AUTH_BASE_URL) });
+    res.json({ legalCompanyName, tradingName, notificationEmail, adminEmail: process.env.ADMIN_EMAIL || '', resendConfigured: Boolean(process.env.RESEND_API_KEY), zeptomailConfigured: Boolean(process.env.ZEPTOMAIL_TOKEN), emailProvider: process.env.EMAIL_PROVIDER || 'auto', neonAuthConfigured: Boolean(process.env.NEON_AUTH_BASE_URL) });
   } catch (error: any) { res.status(500).json({ error: error.message }); }
 });
 application.post('/api/admin/settings/test-email', requireAdmin, async (req, res) => {
