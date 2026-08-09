@@ -1,0 +1,2 @@
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS recipient_phone VARCHAR(30);
+

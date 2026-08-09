@@ -50,6 +50,7 @@ export function mapAlertRow(row: any): AlertCriteria {
     lastTriggered: row.last_triggered || undefined,
     createdAt: row.created_at,
     recipientEmail: row.recipient_email || undefined,
+    recipientPhone: row.recipient_phone || undefined,
     ownerName: row.owner_name || undefined,
   };
 }

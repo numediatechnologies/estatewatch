@@ -10,7 +10,7 @@ export async function runIngestion(options: { sourceUrls?: string[] } = {}): Pro
   const result = emptyIngestResult();
   let gazettes: GazetteItem[];
   try {
-    gazettes = (await discoverGazettes(createFirecrawlClient(), { maxPages: 1 })).gazettes;
+    gazettes = (await discoverGazettes(createFirecrawlClient(), { maxPages: 10 })).gazettes;
     if (options.sourceUrls?.length) {
       const requested = new Set(options.sourceUrls);
       gazettes = gazettes.filter((gazette) => requested.has(gazette.downloadUrl));
@@ -62,7 +62,7 @@ async function processGazette(gazette: GazetteItem, result: IngestResult) {
 
 async function loadAlerts(): Promise<AlertCriteria[]> {
   const rows = (await query('SELECT * FROM alerts WHERE is_active=TRUE')).rows;
-  return rows.map((row: any) => ({ id: row.id, name: row.name, surnameMatch: row.surname_match || undefined, provinces: row.provinces || [], districts: row.districts || [], valueBands: row.value_bands || [], assetTypes: row.asset_types || [], executorStatus: row.executor_status || [], channels: row.channels || [], isActive: row.is_active, matchCount: row.match_count, createdAt: row.created_at, recipientEmail: row.recipient_email, ownerName: row.owner_name }));
+  return rows.map((row: any) => ({ id: row.id, name: row.name, surnameMatch: row.surname_match || undefined, provinces: row.provinces || [], districts: row.districts || [], valueBands: row.value_bands || [], assetTypes: row.asset_types || [], executorStatus: row.executor_status || [], channels: row.channels || [], isActive: row.is_active, matchCount: row.match_count, createdAt: row.created_at, recipientEmail: row.recipient_email, recipientPhone: row.recipient_phone, ownerName: row.owner_name }));
 }
 
 export async function insertEstate(estate: DeceasedEstate): Promise<void> {

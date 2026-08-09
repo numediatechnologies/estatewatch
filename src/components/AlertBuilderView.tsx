@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCriteria, Province } from '../types';
-import { BellRing, CheckCircle2, Mail, Plus, ShieldCheck, Trash2 } from 'lucide-react';
+import { BellRing, CheckCircle2, Mail, Plus, ShieldCheck, Smartphone, Trash2 } from 'lucide-react';
 
 interface AlertBuilderViewProps {
   alerts: AlertCriteria[];
@@ -23,6 +23,8 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
   const [surnameMatch, setSurnameMatch] = useState('');
   const [selectedProvinces, setSelectedProvinces] = useState<Province[]>([]);
   const [recipientEmail, setRecipientEmail] = useState(defaultRecipientEmail);
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [recipientPhone, setRecipientPhone] = useState('');
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
@@ -42,11 +44,12 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
       provinces: selectedProvinces,
       valueBands: [],
       assetTypes: [],
-      channels: ['email'],
+      channels: smsEnabled ? ['email', 'sms'] : ['email'],
       isActive: true,
       matchCount: 0,
       createdAt: new Date().toISOString().split('T')[0],
       recipientEmail: recipientEmail.trim().toLowerCase(),
+      recipientPhone: smsEnabled ? recipientPhone.trim() : undefined,
       ownerName: defaultOwnerName || undefined,
     });
     setSavedSuccess(true);
@@ -59,7 +62,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
       <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
         Alerts use fields consistently available in J193 notices: deceased surname, province or Master’s Office area, and publication details. Estate value and asset type are not published reliably, so they are not used for matching.
       </p>
-      <div className="flex items-center gap-2 text-[11px] text-emerald-300"><ShieldCheck className="w-4 h-4" />Email is the verified production delivery channel.</div>
+      <div className="flex items-center gap-2 text-[11px] text-emerald-300"><ShieldCheck className="w-4 h-4" />Email is always sent. SMS can be enabled as an optional secondary delivery channel.</div>
     </div>
 
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -76,6 +79,16 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
         <label className="text-xs font-bold text-slate-300 block">Notification email *
           <input type="email" value={recipientEmail} onChange={(event) => setRecipientEmail(event.target.value)} placeholder="you@example.com" required className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-amber-500" />
         </label>
+        <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+          <label className="flex items-center justify-between gap-3 text-xs font-bold text-slate-300">
+            <span className="flex items-center gap-2"><Smartphone className="w-4 h-4 text-purple-400" />Also send an SMS</span>
+            <input type="checkbox" checked={smsEnabled} onChange={(event) => setSmsEnabled(event.target.checked)} className="accent-amber-500" />
+          </label>
+          {smsEnabled && <label className="text-xs font-bold text-slate-300 block">Mobile number in international format *
+            <input type="tel" value={recipientPhone} onChange={(event) => setRecipientPhone(event.target.value)} placeholder="27610421779" pattern="\+?[0-9]{10,15}" required className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:border-amber-500" />
+            <span className="block mt-1 font-normal text-slate-500">SMS delivery is best-effort. A failure never prevents the email alert.</span>
+          </label>}
+        </div>
         <div className="space-y-2">
           <div className="text-xs font-bold text-slate-300">Province or Master’s Office area <span className="font-normal text-slate-500">(optional; none means all provinces)</span></div>
           <div className="flex flex-wrap gap-2">{ALL_PROVINCES.map((province) => <button type="button" key={province} onClick={() => toggleProvince(province)} className={`px-3 py-1.5 rounded-xl text-xs font-semibold border ${selectedProvinces.includes(province) ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-slate-950 text-slate-400 border-slate-800'}`}>{province}</button>)}</div>
@@ -97,6 +110,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
             <div>Surname: <strong className="text-slate-200">{alert.surnameMatch || 'Any'}</strong></div>
             <div>Province: <strong className="text-slate-200">{alert.provinces.length ? alert.provinces.join(', ') : 'All'}</strong></div>
             <div className="flex items-center gap-1"><Mail className="w-3 h-3" /><span>{alert.recipientEmail || 'Recipient not configured'}</span></div>
+            {alert.channels.includes('sms') && <div className="flex items-center gap-1"><Smartphone className="w-3 h-3" /><span>{alert.recipientPhone || 'SMS number not configured'}</span></div>}
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[10px] text-slate-500"><span>Matches: <strong className="text-white">{alert.matchCount}</strong></span><button onClick={() => onDeleteAlert(alert.id)} title="Delete rule" className="p-1 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button></div>
         </div>)}

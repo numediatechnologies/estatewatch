@@ -6,6 +6,8 @@ export interface MatchResult {
   score: number;
   reasons: string[];
   recipientEmail?: string;
+  recipientPhone?: string;
+  channels: string[];
   ownerName?: string;
 }
 
@@ -58,7 +60,7 @@ export function matchEstateToAlerts(estate: DeceasedEstate, alerts: AlertCriteri
 
       if (a.surnameMatch) {
         if (!surnameMatches(estate, a.surnameMatch)) {
-          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
+          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, recipientPhone: a.recipientPhone, channels: a.channels, ownerName: a.ownerName };
         }
         reasons.push(`Surname "${a.surnameMatch}"`);
         score += 40;
@@ -66,7 +68,7 @@ export function matchEstateToAlerts(estate: DeceasedEstate, alerts: AlertCriteri
 
       if (a.provinces.length) {
         if (!a.provinces.includes(estate.province)) {
-          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
+          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, recipientPhone: a.recipientPhone, channels: a.channels, ownerName: a.ownerName };
         }
         reasons.push(`Province ${estate.province}`);
         score += 20;
@@ -82,12 +84,12 @@ export function matchEstateToAlerts(estate: DeceasedEstate, alerts: AlertCriteri
           reasons.push(`District ${estate.district}`);
           score += 15;
         } else {
-          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
+          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, recipientPhone: a.recipientPhone, channels: a.channels, ownerName: a.ownerName };
         }
       }
 
       if (a.valueBands.length && !valueBandMatches(estate.valueBand, a.valueBands)) {
-        return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
+        return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, recipientPhone: a.recipientPhone, channels: a.channels, ownerName: a.ownerName };
       }
       if (a.valueBands.length) {
         reasons.push(`Value ${estate.valueBand}`);
@@ -100,7 +102,7 @@ export function matchEstateToAlerts(estate: DeceasedEstate, alerts: AlertCriteri
           reasons.push(`Assets ${overlap.join(', ')}`);
           score += 10;
         } else {
-          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
+          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, recipientPhone: a.recipientPhone, channels: a.channels, ownerName: a.ownerName };
         }
       }
 
@@ -109,12 +111,12 @@ export function matchEstateToAlerts(estate: DeceasedEstate, alerts: AlertCriteri
           reasons.push(`Status ${estate.status}`);
           score += 5;
         } else {
-          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
+          return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, recipientPhone: a.recipientPhone, channels: a.channels, ownerName: a.ownerName };
         }
       }
 
       const matched = score >= MIN_MATCH_SCORE && reasons.length > 0;
-      return { alertId: a.id, alertName: a.name, score: matched ? score : 0, reasons, recipientEmail: a.recipientEmail, ownerName: a.ownerName };
+      return { alertId: a.id, alertName: a.name, score: matched ? score : 0, reasons, recipientEmail: a.recipientEmail, recipientPhone: a.recipientPhone, channels: a.channels, ownerName: a.ownerName };
     })
     .filter((r) => r.score >= MIN_MATCH_SCORE);
 }

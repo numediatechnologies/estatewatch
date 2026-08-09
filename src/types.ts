@@ -60,6 +60,7 @@ export interface AlertCriteria {
   lastTriggered?: string;
   createdAt: string;
   recipientEmail?: string;
+  recipientPhone?: string;
   ownerName?: string;
 }
 

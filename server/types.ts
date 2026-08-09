@@ -51,6 +51,7 @@ export interface AlertCriteria {
   lastTriggered?: string;
   createdAt: string;
   recipientEmail?: string;
+  recipientPhone?: string;
   ownerName?: string;
 }
 
@@ -172,6 +173,7 @@ export const alertSchema = z
     lastTriggered: z.string().max(50).nullable().optional(),
     createdAt: z.string().max(50).optional(),
     recipientEmail: z.string().email().optional(),
+    recipientPhone: z.string().regex(/^\+?[0-9]{10,15}$/).optional(),
     ownerName: z.string().max(255).optional(),
   })
   .strict();

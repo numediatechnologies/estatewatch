@@ -22,8 +22,8 @@ alertsRouter.post('/', validate(alertSchema), async (req, res) => {
     await query(
       `INSERT INTO alerts (
         id, name, surname_match, provinces, districts, value_bands, asset_types,
-        executor_status, channels, is_active, match_count, last_triggered, created_at, recipient_email, owner_name
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        executor_status, channels, is_active, match_count, last_triggered, created_at, recipient_email, recipient_phone, owner_name
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         surname_match = EXCLUDED.surname_match,
@@ -35,12 +35,13 @@ alertsRouter.post('/', validate(alertSchema), async (req, res) => {
         channels = EXCLUDED.channels,
         is_active = EXCLUDED.is_active,
         recipient_email = EXCLUDED.recipient_email,
+        recipient_phone = EXCLUDED.recipient_phone,
         owner_name = EXCLUDED.owner_name;`,
       [
         id, a.name, a.surnameMatch || null, a.provinces, a.districts || [],
         a.valueBands, a.assetTypes, a.executorStatus || [], a.channels,
         a.isActive ?? true, a.matchCount || 0, a.lastTriggered || null,
-        a.createdAt || new Date().toISOString().substring(0, 10), a.recipientEmail || null, a.ownerName || null,
+        a.createdAt || new Date().toISOString().substring(0, 10), a.recipientEmail || null, a.recipientPhone || null, a.ownerName || null,
       ]
     );
     const saved = await query('SELECT * FROM alerts WHERE id = $1', [id]);

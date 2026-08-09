@@ -62,6 +62,7 @@ export async function initializeDatabase() {
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS owner_id VARCHAR(255);
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS owner_name VARCHAR(255);
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS recipient_email VARCHAR(255);
+      ALTER TABLE alerts ADD COLUMN IF NOT EXISTS recipient_phone VARCHAR(30);
     `);
 
     // 3. Pipeline Table
