@@ -33,7 +33,7 @@ npm run build
 npm run dev
 ```
 
-Production database initialization is additive. Demo database records are seeded only when both `SEED_DEMO_DATA=true` and the runtime is not production. Frontend demo data/login similarly require explicit development-only flags. Browser authentication calls the hosted Neon Auth HTTPS endpoints and does not ship an embedded auth server.
+Production database initialization is additive and never seeds demo rows. Frontend demo data/login require explicit development-only flags. Browser authentication calls the hosted Neon Auth HTTPS endpoints and does not ship an embedded auth server.
 
 ## Environment variables
 
@@ -60,7 +60,6 @@ VITE_NEON_AUTH_URL           Neon Auth public URL
 Optional local-only flags:
 
 ```text
-SEED_DEMO_DATA=true
 VITE_ENABLE_DEMO_DATA=true
 VITE_ENABLE_DEMO_LOGIN=true
 ```

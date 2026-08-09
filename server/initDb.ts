@@ -1,7 +1,4 @@
-import { pool, query } from './db.js';
-import { INITIAL_ESTATES } from '../src/data/mockEstates.js';
-import { INITIAL_ALERTS } from '../src/data/mockAlerts.js';
-import { INITIAL_PIPELINE } from '../src/data/mockPipeline.js';
+import { query } from './db.js';
 
 export async function initializeDatabase() {
   console.log('⚡ Initializing Neon PostgreSQL Database Schema...');
@@ -135,73 +132,6 @@ export async function initializeDatabase() {
 
     console.log('✅ Database Schema successfully verified / created.');
 
-    // Seed Data if Estates table is empty
-    const { rowCount } = await query('SELECT id FROM estates LIMIT 1;');
-    if (rowCount === 0 && process.env.SEED_DEMO_DATA === 'true' && process.env.NODE_ENV !== 'production') {
-      console.log('🌱 Database is empty. Seeding initial South African deceased estate records...');
-
-      // Seed Estates
-      for (const e of INITIAL_ESTATES) {
-        await query(
-          `INSERT INTO estates (
-            id, source_id, deceased_name, id_number_masked, date_of_death, gazette_date,
-            province, district, master_office, estate_number, executor_name, executor_contact,
-            executor_email, value_band, asset_types, raw_notice_snippet, gazette_ref,
-            status, has_property, property_details
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
-          ON CONFLICT (id) DO NOTHING;`,
-          [
-            e.id, e.sourceId, e.deceasedName, e.idNumberMasked, e.dateOfDeath, e.gazetteDate,
-            e.province, e.district, e.masterOffice, e.estateNumber, e.executorName, e.executorContact,
-            e.executorEmail, e.valueBand, e.assetTypes, e.rawNoticeSnippet, e.gazetteRef,
-            e.status, e.hasProperty, e.propertyDetails || null
-          ]
-        );
-      }
-
-      // Seed Alerts
-      for (const a of INITIAL_ALERTS) {
-        await query(
-          `INSERT INTO alerts (
-            id, name, surname_match, provinces, districts, value_bands, asset_types,
-            executor_status, channels, is_active, match_count, last_triggered, created_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-          ON CONFLICT (id) DO NOTHING;`,
-          [
-            a.id, a.name, a.surnameMatch || null, a.provinces, a.districts || [],
-            a.valueBands, a.assetTypes, a.executorStatus || [], a.channels,
-            a.isActive, a.matchCount, a.lastTriggered || null, a.createdAt
-          ]
-        );
-      }
-
-      // Seed Pipeline
-      for (const p of INITIAL_PIPELINE) {
-        await query(
-          `INSERT INTO pipeline (
-            id, estate_id, stage, notes, value_estimate, priority, tags, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          ON CONFLICT (id) DO NOTHING;`,
-          [
-            p.id, p.estateId, p.stage, p.notes, p.valueEstimate || 0,
-            p.priority, p.tags, p.updatedAt
-          ]
-        );
-      }
-
-      // Seed Default Ingestion Log
-      await query(
-        `INSERT INTO ingestion_logs (
-          id, timestamp, gazette_issue, total_notices_parsed, matched_alerts_count, ocr_confidence, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (id) DO NOTHING;`,
-        ['log-001', new Date().toISOString().replace('T', ' ').substring(0, 16), 'Govt Gazette Vol 715 No 50920', 142, 18, 98.4, 'completed']
-      );
-
-      console.log('✅ Initial database seed completed!');
-    } else {
-      console.log('ℹ️ Database already contains data. Skipping seed.');
-    }
   } catch (err) {
     console.error('❌ Failed to initialize database:', err);
     throw err;
