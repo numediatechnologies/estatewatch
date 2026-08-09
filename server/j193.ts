@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { DeceasedEstate } from './types.js';
 
 export const PARSER_VERSION = 'j193-v1';
 const RECORD_START = /(?:^|\n)(\d{3,6}\/\d{4})\s*[—-]\s*\(2\)/g;
 
 export async function extractPdfText(buffer: Uint8Array): Promise<string> {
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const pdf = await getDocument({ data: buffer, useWorkerFetch: false }).promise;
   const pages: string[] = [];
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
