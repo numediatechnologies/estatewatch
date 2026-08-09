@@ -15,7 +15,8 @@ import {
   Share2, 
   FileText,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  ArrowUpDown
 } from 'lucide-react';
 import { SouthAfricaMap } from './SouthAfricaMap';
 
@@ -39,10 +40,12 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
   const [selectedValueBand, setSelectedValueBand] = useState<EstateValueBand | 'all'>('all');
   const [hasPropertyOnly, setHasPropertyOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table' | 'map'>('grid');
+  const [sortBy, setSortBy] = useState<'gazetteDate' | 'name' | 'province' | 'masterOffice' | 'estateNumber'>('gazetteDate');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Filtered estates computation
   const filteredEstates = useMemo(() => {
-    return estates.filter(e => {
+    const filtered = estates.filter(e => {
       const matchesSearch = 
         e.deceasedName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         e.estateNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -55,7 +58,18 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
 
       return matchesSearch && matchesProvince && matchesValue && matchesProperty;
     });
-  }, [estates, searchTerm, selectedProvince, selectedValueBand, hasPropertyOnly]);
+    return filtered.map((estate, index) => ({ estate, index })).sort((a, b) => {
+      const left = a.estate;
+      const right = b.estate;
+      const leftValue = sortBy === 'gazetteDate' ? left.gazetteDate : sortBy === 'name' ? left.deceasedName : sortBy === 'province' ? left.province : sortBy === 'masterOffice' ? left.masterOffice : left.estateNumber;
+      const rightValue = sortBy === 'gazetteDate' ? right.gazetteDate : sortBy === 'name' ? right.deceasedName : sortBy === 'province' ? right.province : sortBy === 'masterOffice' ? right.masterOffice : right.estateNumber;
+      const leftMissing = !String(leftValue || '').trim();
+      const rightMissing = !String(rightValue || '').trim();
+      if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+      const comparison = String(leftValue || '').localeCompare(String(rightValue || ''), undefined, { numeric: true, sensitivity: 'base' });
+      return (sortDirection === 'asc' ? 1 : -1) * (comparison || String(left.id).localeCompare(String(right.id)) || a.index - b.index);
+    }).map(({ estate }) => estate);
+  }, [estates, searchTerm, selectedProvince, selectedValueBand, hasPropertyOnly, sortBy, sortDirection]);
 
   // Province counts for map
   const provinceCounts = useMemo(() => {
@@ -205,6 +219,21 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
             />
             <span>Real Estate Property Flagged Only</span>
           </label>
+
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-slate-400 font-medium">Sort:</span>
+            <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200">
+              <option value="gazetteDate">Gazette date</option>
+              <option value="name">Deceased name</option>
+              <option value="province">Province</option>
+              <option value="masterOffice">Master’s Office</option>
+              <option value="estateNumber">Estate number</option>
+            </select>
+            <button type="button" onClick={() => setSortDirection(current => current === 'asc' ? 'desc' : 'asc')} className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-300" aria-label={`Sort ${sortDirection === 'asc' ? 'descending' : 'ascending'}`}>
+              {sortDirection === 'asc' ? '↑' : '↓'}
+            </button>
+          </div>
 
         </div>
 

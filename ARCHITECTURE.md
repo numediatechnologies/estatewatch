@@ -11,6 +11,9 @@ Deliver a minimum viable product that proves the value of:
 4. tracking matched estates through a lightweight lead pipeline
 5. maintaining POPIA-safe handling of personal data
 
+## Mission-critical operating principle
+All workflows are handled as mission-critical. Alerts, ingestion, notifications, follow-up reminders, dashboards and administrator operations must fail visibly, preserve the last known-good state, avoid unsupported claims, and confirm important writes before showing success. Prefer reversible actions such as pause over permanent deletion where possible. This is a reliability and integrity standard, not a guarantee of legal, financial or notification outcomes.
+
 ## Product model
 ### Core entities
 - `User` / `UserProfile`

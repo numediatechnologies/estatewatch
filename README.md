@@ -18,6 +18,10 @@ The voice is simple, practical and reliable. It should feel built for South Afri
 
 EstateWatch discovers South African Government Gazette J193 issues, extracts genuine deceased-estate records, matches saved alerts, and sends email notifications. The production pipeline is intentionally conservative: fields absent from J193 notices stay `Unknown`, uncertain records are rejected for review, and reruns do not create duplicate estates or emails.
 
+## Mission-critical operating principle
+
+Every EstateWatch workflow is treated as mission-critical: alerts, ingestion, notifications, follow-up reminders, dashboards and administrator operations must fail visibly, preserve the last known-good state, and avoid unsupported or misleading claims. Important changes require confirmation where appropriate, writes are confirmed by the server before the interface reports success, and reversible actions are preferred where possible. This principle supports reliable operation but is not a guarantee of legal, financial or notification outcomes.
+
 ## Production workflow
 
 1. Vercel Cron calls `GET /api/cron/ingest` at 04:30 UTC Monday–Saturday.

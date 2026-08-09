@@ -66,6 +66,7 @@ export interface PipelineItem {
   notes: string;
   valueEstimate: number;
   updatedAt: string;
+  followUpAt?: string;
   priority: string;
   tags: string[];
 }
@@ -193,6 +194,7 @@ export const pipelineCreateSchema = z
     priority: z.enum(['low', 'medium', 'high']).default('high'),
     tags: z.array(z.string().max(50)).optional(),
     updatedAt: z.string().max(50).optional(),
+    followUpAt: z.string().max(50).optional(),
   })
   .strict();
 
@@ -202,6 +204,7 @@ export const pipelineUpdateSchema = z
     notes: z.string().max(5000).optional(),
     valueEstimate: z.number().min(0).optional(),
     priority: z.enum(['low', 'medium', 'high']).optional(),
+    followUpAt: z.string().max(50).nullable().optional(),
   })
   .strict()
   .refine((v) => Object.keys(v).length > 0, { message: 'At least one field to update is required' });

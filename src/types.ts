@@ -106,6 +106,7 @@ export interface PipelineItem {
   notes: string;
   valueEstimate?: number; // Estimated commission or lead value in ZAR (R)
   updatedAt: string;
+  followUpAt?: string;
   priority: 'low' | 'medium' | 'high';
   tags: string[];
 }

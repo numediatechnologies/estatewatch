@@ -13,12 +13,13 @@ import {
   Calendar,
   FileText,
   Tag
+  ,ArrowUpDown
 } from 'lucide-react';
 
 interface PipelineCrmViewProps {
   pipeline: PipelineItem[];
   onUpdateStage: (itemId: string, newStage: PipelineStage) => void;
-  onUpdateNotes: (itemId: string, notes: string, estimate?: number) => void;
+  onUpdateNotes: (itemId: string, notes: string, estimate?: number, followUpAt?: string | null) => void;
   onRemoveItem: (itemId: string) => void;
   onSelectEstateModal: (estate: any) => void;
 }
@@ -41,6 +42,9 @@ export const PipelineCrmView: React.FC<PipelineCrmViewProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNotesText, setEditNotesText] = useState('');
   const [editEstimate, setEditEstimate] = useState<number>(0);
+  const [editFollowUpAt, setEditFollowUpAt] = useState('');
+  const [sortBy, setSortBy] = useState<'followUp' | 'priority' | 'stage' | 'updated'>('followUp');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const totalValue = pipeline.reduce((acc, item) => acc + (item.valueEstimate || 0), 0);
 
@@ -48,10 +52,11 @@ export const PipelineCrmView: React.FC<PipelineCrmViewProps> = ({
     setEditingId(item.id);
     setEditNotesText(item.notes);
     setEditEstimate(item.valueEstimate || 0);
+    setEditFollowUpAt(item.followUpAt || '');
   };
 
   const handleSaveEdit = (itemId: string) => {
-    onUpdateNotes(itemId, editNotesText, editEstimate);
+    onUpdateNotes(itemId, editNotesText, editEstimate, editFollowUpAt || null);
     setEditingId(null);
   };
 
@@ -98,6 +103,16 @@ export const PipelineCrmView: React.FC<PipelineCrmViewProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <ArrowUpDown className="w-3.5 h-3.5 text-amber-400" />
+            <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] text-slate-300">
+              <option value="followUp">Follow-up</option>
+              <option value="priority">Priority</option>
+              <option value="stage">Stage</option>
+              <option value="updated">Last updated</option>
+            </select>
+            <button type="button" onClick={() => setSortDirection(current => current === 'asc' ? 'desc' : 'asc')} className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[10px] text-slate-300" aria-label={`Sort ${sortDirection === 'asc' ? 'descending' : 'ascending'}`}>{sortDirection === 'asc' ? '↑' : '↓'}</button>
+          </div>
           <div className="bg-slate-950 px-3.5 py-2 rounded-xl border border-slate-800 text-xs">
             <span className="text-slate-400 block text-[10px]">Total Pipeline Value:</span>
             <span className="text-sm font-bold text-amber-400">R {totalValue.toLocaleString()}</span>
@@ -116,7 +131,33 @@ export const PipelineCrmView: React.FC<PipelineCrmViewProps> = ({
       {/* Kanban Board Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 overflow-x-auto pb-4">
         {STAGES.map((stage) => {
-          const itemsInStage = pipeline.filter(p => p.stage === stage.id);
+          const priorityRank = { low: 1, medium: 2, high: 3 };
+          const parseTime = (value?: string) => value ? Date.parse(value.replace(' ', 'T')) || 0 : 0;
+          const now = Date.now();
+          const itemsInStage = pipeline.filter(p => p.stage === stage.id).map((item, index) => ({ item, index })).sort((a, b) => {
+            const left = a.item;
+            const right = b.item;
+            const leftOverdue = left.followUpAt ? parseTime(left.followUpAt) < now : false;
+            const rightOverdue = right.followUpAt ? parseTime(right.followUpAt) < now : false;
+            let comparison = 0;
+            if (sortBy === 'followUp') {
+              const leftMissing = !left.followUpAt;
+              const rightMissing = !right.followUpAt;
+              if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+              else if (leftOverdue !== rightOverdue) comparison = Number(rightOverdue) - Number(leftOverdue);
+              else comparison = (parseTime(left.followUpAt) || Number.MAX_SAFE_INTEGER) - (parseTime(right.followUpAt) || Number.MAX_SAFE_INTEGER);
+            }
+            if (sortBy === 'priority') comparison = priorityRank[left.priority] - priorityRank[right.priority];
+            if (sortBy === 'stage') comparison = left.stage.localeCompare(right.stage);
+            if (sortBy === 'updated') {
+              const leftMissing = !left.updatedAt;
+              const rightMissing = !right.updatedAt;
+              if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+              else comparison = parseTime(left.updatedAt) - parseTime(right.updatedAt);
+            }
+            if (comparison === 0) comparison = left.estate.deceasedName.localeCompare(right.estate.deceasedName) || a.index - b.index;
+            return (sortDirection === 'asc' ? 1 : -1) * comparison;
+          }).map(({ item }) => item);
           const stageValue = itemsInStage.reduce((acc, i) => acc + (i.valueEstimate || 0), 0);
 
           return (
@@ -194,6 +235,10 @@ export const PipelineCrmView: React.FC<PipelineCrmViewProps> = ({
                             className="w-full bg-slate-950 text-xs text-slate-200 p-1.5 rounded border border-slate-700"
                           />
                         </div>
+                        <div>
+                          <label className="text-[10px] text-slate-400 block mb-0.5">Follow-up date</label>
+                          <input type="datetime-local" value={editFollowUpAt} onChange={(e) => setEditFollowUpAt(e.target.value)} className="w-full bg-slate-950 text-xs text-slate-200 p-1.5 rounded border border-slate-700" />
+                        </div>
                         <button
                           onClick={() => handleSaveEdit(item.id)}
                           className="w-full py-1 bg-amber-500 text-slate-950 font-bold text-[10px] rounded cursor-pointer"
@@ -213,6 +258,7 @@ export const PipelineCrmView: React.FC<PipelineCrmViewProps> = ({
                             Est Value: R {item.valueEstimate.toLocaleString()}
                           </span>
                         )}
+                        {item.followUpAt && <span className={`text-[10px] font-semibold block mt-1 ${new Date(item.followUpAt).getTime() < Date.now() ? 'text-rose-400' : 'text-slate-400'}`}>Follow-up: {new Date(item.followUpAt).toLocaleString()}</span>}
                       </div>
                     )}
 

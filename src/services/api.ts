@@ -84,6 +84,21 @@ export async function createAlert(alert: AlertCriteria): Promise<AlertCriteria |
   }
 }
 
+export async function updateAlert(alert: AlertCriteria): Promise<AlertCriteria | null> {
+  try {
+    const res = await apiFetch(`${API_BASE}/alerts/${encodeURIComponent(alert.id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(alert),
+    });
+    if (!res.ok) throw new Error('Failed to update alert');
+    return await res.json();
+  } catch (err) {
+    console.error('Error updating alert:', err);
+    return null;
+  }
+}
+
 export async function toggleAlert(id: string): Promise<boolean> {
   try {
     const res = await apiFetch(`${API_BASE}/alerts/${id}/toggle`, { method: 'PATCH' });
@@ -130,12 +145,12 @@ export async function addPipelineItem(item: Partial<PipelineItem>): Promise<Pipe
   }
 }
 
-export async function updatePipelineStage(id: string, stage: string, notes?: string, valueEstimate?: number) {
+export async function updatePipelineStage(id: string, stage: string, notes?: string, valueEstimate?: number, followUpAt?: string | null) {
   try {
     const res = await apiFetch(`${API_BASE}/pipeline/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stage, notes, valueEstimate }),
+      body: JSON.stringify({ stage, notes, valueEstimate, followUpAt }),
     });
     return res.ok;
   } catch (err) {

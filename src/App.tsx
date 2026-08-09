@@ -17,6 +17,7 @@ import {
   fetchEstate,
   fetchAlerts,
   createAlert as createAlertApi,
+  updateAlert as updateAlertApi,
   toggleAlert as toggleAlertApi,
   deleteAlert as deleteAlertApi,
   fetchPipeline,
@@ -183,11 +184,11 @@ export function App() {
   };
 
   // Update Pipeline Item Notes
-  const handleUpdatePipelineNotes = async (itemId: string, notes: string, estimate?: number) => {
-    setPipeline(prev => prev.map(p => p.id === itemId ? { ...p, notes, valueEstimate: estimate !== undefined ? estimate : p.valueEstimate } : p));
+  const handleUpdatePipelineNotes = async (itemId: string, notes: string, estimate?: number, followUpAt?: string | null) => {
+    setPipeline(prev => prev.map(p => p.id === itemId ? { ...p, notes, valueEstimate: estimate !== undefined ? estimate : p.valueEstimate, followUpAt: followUpAt || undefined } : p));
     const targetItem = pipeline.find(p => p.id === itemId);
     if (targetItem) {
-      await updatePipelineStageApi(itemId, targetItem.stage, notes, estimate);
+      await updatePipelineStageApi(itemId, targetItem.stage, notes, estimate, followUpAt);
     }
   };
 
@@ -200,17 +201,32 @@ export function App() {
   // Alert Rules Handlers
   const handleCreateAlert = async (newAlert: AlertCriteria) => {
     const saved = await createAlertApi(newAlert);
-    if (saved) setAlerts(prev => [saved, ...prev]);
+    if (saved) {
+      setAlerts(prev => [saved, ...prev]);
+      return true;
+    }
+    return false;
+  };
+
+  const handleUpdateAlert = async (updatedAlert: AlertCriteria) => {
+    const saved = await updateAlertApi(updatedAlert);
+    if (!saved) return false;
+    setAlerts(prev => prev.map(alert => alert.id === saved.id ? saved : alert));
+    return true;
   };
 
   const handleToggleAlert = async (id: string) => {
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, isActive: !a.isActive } : a));
-    await toggleAlertApi(id);
+    const current = alerts.find(a => a.id === id);
+    if (!current) return false;
+    const ok = await toggleAlertApi(id);
+    if (ok) setAlerts(prev => prev.map(a => a.id === id ? { ...a, isActive: !a.isActive } : a));
+    return ok;
   };
 
   const handleDeleteAlert = async (id: string) => {
-    setAlerts(prev => prev.filter(a => a.id !== id));
-    await deleteAlertApi(id);
+    const ok = await deleteAlertApi(id);
+    if (ok) setAlerts(prev => prev.filter(a => a.id !== id));
+    return ok;
   };
 
   // Simulation Trigger Match Handler
@@ -334,6 +350,7 @@ export function App() {
             <AlertBuilderView
               alerts={alerts}
               onCreateAlert={handleCreateAlert}
+              onUpdateAlert={handleUpdateAlert}
               onToggleAlert={handleToggleAlert}
               onDeleteAlert={handleDeleteAlert}
               defaultRecipientEmail={currentUser?.email}

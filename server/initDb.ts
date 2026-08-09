@@ -81,8 +81,10 @@ export async function initializeDatabase() {
         value_estimate NUMERIC(12, 2),
         priority VARCHAR(50) DEFAULT 'medium',
         tags TEXT[],
-        updated_at VARCHAR(50)
+        updated_at VARCHAR(50),
+        follow_up_at VARCHAR(50)
       );
+      ALTER TABLE pipeline ADD COLUMN IF NOT EXISTS follow_up_at VARCHAR(50);
     `);
 
     // 4. Notifications Table

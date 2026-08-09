@@ -28,6 +28,7 @@ pipelineRouter.get('/', async (_req, res) => {
       updatedAt: row.updated_at,
       priority: row.priority,
       tags: row.tags || [],
+      followUpAt: row.follow_up_at || undefined,
     }));
     res.json(items);
   } catch (err: any) {
@@ -40,10 +41,10 @@ pipelineRouter.post('/', validate(pipelineCreateSchema), async (req, res) => {
     const p = req.body;
     const id = p.id || `pip-${Date.now()}`;
     await query(
-      `INSERT INTO pipeline (id, estate_id, stage, notes, value_estimate, priority, tags, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       ON CONFLICT (id) DO UPDATE SET stage = EXCLUDED.stage, notes = EXCLUDED.notes, updated_at = EXCLUDED.updated_at;`,
-      [id, p.estateId, p.stage, p.notes || '', p.valueEstimate || 0, p.priority, p.tags || [], p.updatedAt || new Date().toISOString().substring(0, 10)]
+      `INSERT INTO pipeline (id, estate_id, stage, notes, value_estimate, priority, tags, updated_at, follow_up_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (id) DO UPDATE SET stage = EXCLUDED.stage, notes = EXCLUDED.notes, updated_at = EXCLUDED.updated_at, follow_up_at = EXCLUDED.follow_up_at;`,
+      [id, p.estateId, p.stage, p.notes || '', p.valueEstimate || 0, p.priority, p.tags || [], p.updatedAt || new Date().toISOString().substring(0, 10), p.followUpAt || null]
     );
     res.status(201).json({ id, ...p });
   } catch (err: any) {
@@ -62,6 +63,7 @@ pipelineRouter.patch('/:id', validate(pipelineUpdateSchema), async (req, res) =>
     if (body.notes !== undefined) { params.push(body.notes); queryText += `, notes = $${params.length}`; }
     if (body.valueEstimate !== undefined) { params.push(body.valueEstimate); queryText += `, value_estimate = $${params.length}`; }
     if (body.priority) { params.push(body.priority); queryText += `, priority = $${params.length}`; }
+    if (body.followUpAt !== undefined) { params.push(body.followUpAt); queryText += `, follow_up_at = $${params.length}`; }
     params.push(id);
     queryText += ` WHERE id = $${params.length}`;
     await query(queryText, params);

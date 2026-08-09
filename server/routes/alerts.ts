@@ -59,6 +59,30 @@ alertsRouter.post('/', validate(alertSchema), async (req, res) => {
   }
 });
 
+alertsRouter.patch('/:id', validate(alertSchema), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const a = req.body;
+    const current = await query('SELECT id_number_hash, id_number_match_masked FROM alerts WHERE id = $1', [id]);
+    if (current.rowCount === 0) return res.status(404).json({ error: 'Alert not found' });
+    if (a.idNumberMatch && !isValidSouthAfricanId(a.idNumberMatch)) return res.status(400).json({ error: 'Enter a valid South African identity number' });
+    const idNumberHash = a.idNumberMatch ? identityFingerprint(a.idNumberMatch) : current.rows[0].id_number_hash;
+    const idNumberMatchMasked = a.idNumberMatch ? maskSouthAfricanId(a.idNumberMatch) : current.rows[0].id_number_match_masked;
+    await query(
+      `UPDATE alerts SET name = $1, surname_match = $2, provinces = $3, districts = $4, value_bands = $5,
+       asset_types = $6, executor_status = $7, channels = $8, is_active = $9, recipient_email = $10,
+       recipient_phone = $11, owner_name = $12, id_number_hash = $13, id_number_match_masked = $14 WHERE id = $15`,
+      [a.name, a.surnameMatch || null, a.provinces, a.districts || [], a.valueBands, a.assetTypes,
+       a.executorStatus || [], a.channels, a.isActive ?? true, a.recipientEmail || null, a.recipientPhone || null,
+       a.ownerName || null, idNumberHash, idNumberMatchMasked, id]
+    );
+    const saved = await query('SELECT * FROM alerts WHERE id = $1', [id]);
+    res.json(mapAlertRow(saved.rows[0]));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 alertsRouter.patch('/:id/toggle', async (req, res) => {
   try {
     const { id } = req.params;
@@ -75,7 +99,8 @@ alertsRouter.patch('/:id/toggle', async (req, res) => {
 alertsRouter.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await query('DELETE FROM alerts WHERE id = $1', [id]);
+    const result = await query('DELETE FROM alerts WHERE id = $1', [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Alert not found' });
     res.json({ success: true, id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

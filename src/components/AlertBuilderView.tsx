@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCriteria, Province } from '../types';
-import { BellRing, CheckCircle2, Mail, Plus, ShieldCheck, Smartphone, Trash2 } from 'lucide-react';
+import { BellRing, CheckCircle2, Edit3, Mail, Plus, ShieldCheck, Smartphone, Trash2, X } from 'lucide-react';
 
 interface AlertBuilderViewProps {
   alerts: AlertCriteria[];
-  onCreateAlert: (newAlert: AlertCriteria) => Promise<void>;
-  onToggleAlert: (id: string) => void;
-  onDeleteAlert: (id: string) => void;
+  onCreateAlert: (newAlert: AlertCriteria) => Promise<boolean>;
+  onUpdateAlert: (alert: AlertCriteria) => Promise<boolean>;
+  onToggleAlert: (id: string) => Promise<boolean>;
+  onDeleteAlert: (id: string) => Promise<boolean>;
   defaultRecipientEmail?: string;
   defaultOwnerName?: string;
 }
@@ -17,8 +18,9 @@ const ALL_PROVINCES: Province[] = [
 ];
 
 export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
-  alerts, onCreateAlert, onToggleAlert, onDeleteAlert, defaultRecipientEmail = '', defaultOwnerName = '',
+  alerts, onCreateAlert, onUpdateAlert, onToggleAlert, onDeleteAlert, defaultRecipientEmail = '', defaultOwnerName = '',
 }) => {
+  const [editingAlertId, setEditingAlertId] = useState<string | null>(null);
   const [alertName, setAlertName] = useState('Gazette estate alert');
   const [surnameMatch, setSurnameMatch] = useState('');
   const [idNumberMatch, setIdNumberMatch] = useState('');
@@ -27,6 +29,9 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
   const [smsEnabled, setSmsEnabled] = useState(false);
   const [recipientPhone, setRecipientPhone] = useState('');
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [error, setError] = useState('');
+  const [sortBy, setSortBy] = useState<'active' | 'name' | 'created' | 'matches'>('active');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     if (!recipientEmail && defaultRecipientEmail) setRecipientEmail(defaultRecipientEmail);
@@ -35,28 +40,84 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
   const toggleProvince = (province: Province) => setSelectedProvinces((current) =>
     current.includes(province) ? current.filter((item) => item !== province) : [...current, province]);
 
+  const resetForm = () => {
+    setEditingAlertId(null);
+    setAlertName('Gazette estate alert');
+    setSurnameMatch('');
+    setIdNumberMatch('');
+    setSelectedProvinces([]);
+    setRecipientEmail(defaultRecipientEmail);
+    setSmsEnabled(false);
+    setRecipientPhone('');
+  };
+
+  const startEditing = (alert: AlertCriteria) => {
+    setEditingAlertId(alert.id);
+    setAlertName(alert.name);
+    setSurnameMatch(alert.surnameMatch || '');
+    setIdNumberMatch('');
+    setSelectedProvinces(alert.provinces);
+    setRecipientEmail(alert.recipientEmail || defaultRecipientEmail);
+    setSmsEnabled(alert.channels.includes('sms'));
+    setRecipientPhone(alert.recipientPhone || '');
+    setError('');
+  };
+
+  const sortedAlerts = useMemo(() => {
+    return alerts.map((alert, index) => ({ alert, index })).sort((a, b) => {
+      const left = a.alert;
+      const right = b.alert;
+      let comparison = 0;
+      if (sortBy === 'active') comparison = Number(left.isActive) - Number(right.isActive);
+      if (sortBy === 'name') comparison = left.name.localeCompare(right.name);
+      if (sortBy === 'created') comparison = String(left.createdAt).localeCompare(String(right.createdAt));
+      if (sortBy === 'matches') comparison = left.matchCount - right.matchCount;
+      if (comparison === 0) comparison = String(left.id).localeCompare(String(right.id)) || a.index - b.index;
+      return (sortDirection === 'asc' ? 1 : -1) * comparison;
+    }).map(({ alert }) => alert);
+  }, [alerts, sortBy, sortDirection]);
+
   const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault();
+    setError('');
     if (!alertName.trim() || !recipientEmail.trim()) return;
-    await onCreateAlert({
-      id: `alt-${Date.now()}`,
+    if (smsEnabled && !recipientPhone.trim()) {
+      setError('Enter a mobile number before enabling SMS.');
+      return;
+    }
+    const existing = editingAlertId ? alerts.find(alert => alert.id === editingAlertId) : undefined;
+    const payload: AlertCriteria = {
+      id: editingAlertId || `alt-${Date.now()}`,
       name: alertName.trim(),
       surnameMatch: surnameMatch.trim() || undefined,
       idNumberMatch: idNumberMatch.trim() || undefined,
       provinces: selectedProvinces,
-      valueBands: [],
-      assetTypes: [],
+      valueBands: existing?.valueBands || [],
+      assetTypes: existing?.assetTypes || [],
       channels: smsEnabled ? ['email', 'sms'] : ['email'],
-      isActive: true,
-      matchCount: 0,
-      createdAt: new Date().toISOString().split('T')[0],
+      isActive: existing?.isActive ?? true,
+      matchCount: existing?.matchCount || 0,
+      createdAt: existing?.createdAt || new Date().toISOString().split('T')[0],
       recipientEmail: recipientEmail.trim().toLowerCase(),
       recipientPhone: smsEnabled ? recipientPhone.trim() : undefined,
       ownerName: defaultOwnerName || undefined,
-    });
-    setIdNumberMatch('');
+    };
+    const ok = editingAlertId ? await onUpdateAlert(payload) : await onCreateAlert(payload);
+    if (!ok) {
+      setError('We could not save this alert. Nothing was changed. Please try again.');
+      return;
+    }
+    resetForm();
     setSavedSuccess(true);
     window.setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
+  const handleDelete = async (alert: AlertCriteria) => {
+    if (!window.confirm(`Delete “${alert.name}” permanently? This cannot be undone.`)) return;
+    setError('');
+    const ok = await onDeleteAlert(alert.id);
+    if (!ok) setError('We could not delete this alert. It remains active in your list. Please try again.');
+    if (ok && editingAlertId === alert.id) resetForm();
   };
 
   return <div className="space-y-6">
@@ -70,7 +131,10 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
 
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <form onSubmit={handleCreate} className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-5">
-        <h3 className="font-bold text-sm text-white border-b border-slate-800 pb-3">Set your alert</h3>
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h3 className="font-bold text-sm text-white">{editingAlertId ? 'Edit your alert' : 'Set your alert'}</h3>
+          {editingAlertId && <button type="button" onClick={resetForm} className="text-xs text-slate-400 hover:text-white flex items-center gap-1"><X className="w-3.5 h-3.5" />Cancel</button>}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="text-xs font-bold text-slate-300">Alert name *
             <input value={alertName} onChange={(event) => setAlertName(event.target.value)} required className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-amber-500" />
@@ -81,7 +145,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
         </div>
         <label className="text-xs font-bold text-slate-300 block">South African ID number <span className="text-amber-400">(highest priority)</span>
           <input inputMode="numeric" autoComplete="off" value={idNumberMatch} onChange={(event) => setIdNumberMatch(event.target.value.replace(/\D/g, '').slice(0, 13))} placeholder="13 digits" pattern="[0-9]{13}" className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-amber-500" />
-          <span className="block mt-1 font-normal text-slate-500">Optional. An exact ID match takes priority. We do not store or display the full number.</span>
+          <span className="block mt-1 font-normal text-slate-500">Optional. An exact ID match takes priority. We do not store or display the full number.{editingAlertId && alerts.find(alert => alert.id === editingAlertId)?.idNumberMatchMasked ? ' Leave blank to keep the existing exact ID match.' : ''}</span>
         </label>
         <label className="text-xs font-bold text-slate-300 block">Notification email *
           <input type="email" value={recipientEmail} onChange={(event) => setRecipientEmail(event.target.value)} placeholder="you@example.com" required className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-amber-500" />
@@ -105,14 +169,15 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
         </div>
         <div className="flex items-center justify-between gap-3">
           {savedSuccess ? <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />Great! Your alert is active.</span> : <span />}
-          <button type="submit" className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2"><Plus className="w-4 h-4" />Start Alert</button>
+          <button type="submit" className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2"><>{editingAlertId ? <Edit3 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}</>{editingAlertId ? 'Save Changes' : 'Start Alert'}</button>
         </div>
+        {error && <p role="alert" className="text-xs text-rose-400 font-semibold">{error}</p>}
       </form>
 
       <div className="space-y-4">
-        <h3 className="font-bold text-sm text-white flex items-center gap-2"><BellRing className="w-4 h-4 text-amber-400" />Your alerts ({alerts.length})</h3>
-        {alerts.map((alert) => <div key={alert.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-          <div className="flex items-start justify-between gap-2"><div><h4 className="font-bold text-xs text-white">{alert.name}</h4><span className="text-[10px] text-slate-500">Created {alert.createdAt}</span></div><button onClick={() => onToggleAlert(alert.id)} className={`px-2 py-0.5 rounded text-[10px] font-bold ${alert.isActive ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-500'}`}>{alert.isActive ? 'ACTIVE' : 'PAUSED'}</button></div>
+        <div className="flex items-center justify-between gap-2"><h3 className="font-bold text-sm text-white flex items-center gap-2"><BellRing className="w-4 h-4 text-amber-400" />Your alerts ({alerts.length})</h3><div className="flex items-center gap-1"><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[10px] text-slate-300"><option value="active">Active first</option><option value="name">Name</option><option value="created">Created</option><option value="matches">Matches</option></select><button type="button" onClick={() => setSortDirection(current => current === 'asc' ? 'desc' : 'asc')} className="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[10px] text-slate-300">{sortDirection === 'asc' ? '↑' : '↓'}</button></div></div>
+        {sortedAlerts.map((alert) => <div key={alert.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+          <div className="flex items-start justify-between gap-2"><div><h4 className="font-bold text-xs text-white">{alert.name}</h4><span className="text-[10px] text-slate-500">Created {alert.createdAt}</span></div><button onClick={() => void onToggleAlert(alert.id)} className={`px-2 py-0.5 rounded text-[10px] font-bold ${alert.isActive ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-500'}`}>{alert.isActive ? 'ACTIVE' : 'PAUSED'}</button></div>
           <div className="text-[11px] text-slate-400 space-y-1">
             {alert.idNumberMatchMasked && <div>Exact ID: <strong className="text-amber-300">{alert.idNumberMatchMasked}</strong> (priority)</div>}
             <div>Surname: <strong className="text-slate-200">{alert.surnameMatch || 'Any'}</strong></div>
@@ -120,7 +185,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
             <div className="flex items-center gap-1"><Mail className="w-3 h-3" /><span>{alert.recipientEmail || 'Recipient not configured'}</span></div>
             {alert.channels.includes('sms') && <div className="flex items-center gap-1"><Smartphone className="w-3 h-3" /><span>{alert.recipientPhone || 'SMS number not configured'}</span></div>}
           </div>
-          <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[10px] text-slate-500"><span>Matches: <strong className="text-white">{alert.matchCount}</strong></span><button onClick={() => onDeleteAlert(alert.id)} title="Delete rule" className="p-1 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button></div>
+          <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[10px] text-slate-500"><span>Matches: <strong className="text-white">{alert.matchCount}</strong></span><div className="flex items-center gap-2"><button onClick={() => startEditing(alert)} title="Edit alert" className="p-1 hover:text-amber-400"><Edit3 className="w-3.5 h-3.5" /></button><button onClick={() => void handleDelete(alert)} title="Delete alert" className="p-1 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button></div></div>
         </div>)}
       </div>
     </div>
