@@ -28,21 +28,22 @@ interface SidebarProps {
   onTabChange: (tab: TabType) => void;
   matchesCount: number;
   pipelineCount: number;
+  isAdmin: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
   matchesCount,
-  pipelineCount
+  pipelineCount,
+  isAdmin,
 }) => {
   const navItems: { id: TabType; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'dashboard', label: 'Dashboard Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'estates', label: 'Gazette Estate Feed', icon: <FileText className="w-4 h-4" />, badge: matchesCount },
     { id: 'alerts', label: 'Alert Builder Wizard', icon: <BellRing className="w-4 h-4" /> },
     { id: 'pipeline', label: 'Lead Pipeline CRM', icon: <Briefcase className="w-4 h-4" />, badge: pipelineCount },
-    { id: 'ingestion', label: 'Ingestion & OCR Parser', icon: <Cpu className="w-4 h-4" /> },
-    { id: 'admin', label: 'Admin Scraper', icon: <Bot className="w-4 h-4" /> },
+    ...(isAdmin ? [{ id: 'ingestion' as TabType, label: 'Admin Ingestion', icon: <Cpu className="w-4 h-4" /> }] : []),
     { id: 'popia', label: 'POPIA & Legal Basis', icon: <ShieldCheck className="w-4 h-4" /> },
     { id: 'billing', label: 'Subscription & Plans', icon: <CreditCard className="w-4 h-4" /> },
   ];
@@ -99,11 +100,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>Why EstateWatch?</span>
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            Unlike static library search portals, EstateWatch sends instant <strong className="text-slate-200">WhatsApp & Email alerts</strong> the moment matching deceased estates are gazetted.
+            EstateWatch sends <strong className="text-slate-200">email alerts</strong> after a verified J193 record matches your surname or province criteria.
           </p>
           <div className="pt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500">
-            <span>Avg alert latency:</span>
-            <span className="text-emerald-400 font-semibold">&lt; 4 minutes</span>
+            <span>Production channel:</span>
+            <span className="text-emerald-400 font-semibold">Email</span>
           </div>
         </div>
 

@@ -32,8 +32,24 @@ export function splitJ193Records(text: string): Array<{ text: string; page: numb
   });
 }
 
+function isValidDate(value?: string): value is string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
+}
+
+function isValidSouthAfricanId(value?: string): value is string {
+  if (!value || !/^\d{13}$/.test(value)) return false;
+  const birthDate = `${Number(value.slice(0, 2)) >= 30 ? '19' : '20'}${value.slice(0, 2)}-${value.slice(2, 4)}-${value.slice(4, 6)}`;
+  if (!isValidDate(birthDate)) return false;
+  const digits = [...value].map(Number);
+  let sum = 0;
+  for (let index = 0; index < 12; index += 1) sum += index % 2 === 0 ? digits[index] : Math.floor(digits[index] * 2 / 10) + (digits[index] * 2 % 10);
+  return (10 - (sum % 10)) % 10 === digits[12];
+}
+
 function maskId(value?: string): string {
-  if (!value || !/^\d{13}$/.test(value)) return 'Unknown';
+  if (!isValidSouthAfricanId(value)) return 'Unknown';
   return `${value.slice(0, 6)}****${value.slice(-3)}`;
 }
 
@@ -57,11 +73,11 @@ export function parseJ193Record(record: string, source: { url: string; published
   const [, estateNumber, deceasedField, deathField, spouseField, executorField, claimField] = match;
   const deceasedParts = deceasedField.split(',').map((part) => part.trim());
   const deceasedName = deceasedParts.slice(0, 2).filter(Boolean).join(', ');
-  const dateOfBirth = deceasedParts.find((part) => /^\d{4}-\d{2}-\d{2}$/.test(part));
+  const dateOfBirth = deceasedParts.find((part) => isValidDate(part));
   const idNumber = deceasedParts.find((part) => /^\d{13}$/.test(part));
   const lastAddress = deceasedParts.slice(Math.max(deceasedParts.findIndex((part) => /^\d{13}$/.test(part)) + 1, 2)).join(', ');
   const deathParts = deathField.split(',').map((part) => part.trim());
-  const dateOfDeath = deathParts.find((part) => /^\d{4}-\d{2}-\d{2}$/.test(part));
+  const dateOfDeath = deathParts.find((part) => isValidDate(part));
   const masterOffice = deathParts.filter((part) => part !== dateOfDeath).join(', ') || 'Unknown';
   const province = provinceFor(masterOffice, lastAddress);
   if (!deceasedName || !dateOfDeath || !province) return { estate: null, warning: 'Missing required deceased name, date of death, or province' };
@@ -75,7 +91,7 @@ export function parseJ193Record(record: string, source: { url: string; published
     executorEmail: '', spouseDetails: /^[- N\/A]+$/i.test(spouseField.trim()) ? undefined : spouseField.trim(),
     claimPeriodDays: Number(claimField.match(/\d+/)?.[0]) || undefined, gazetteNumber: source.gazetteNumber,
     gazettePage: source.page, sourceUrl: source.url, parserVersion: PARSER_VERSION, valueBand: 'Unknown',
-    assetTypes: ['other'], rawNoticeSnippet: record.slice(0, 1000), gazetteRef: `Government Gazette ${source.gazetteNumber}`,
+    assetTypes: ['unknown'], rawNoticeSnippet: record.slice(0, 1000), gazetteRef: `Government Gazette ${source.gazetteNumber}`,
     status: 'pending', hasProperty: false,
   }};
 }

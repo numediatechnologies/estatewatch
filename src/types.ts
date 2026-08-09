@@ -26,6 +26,7 @@ export type EstateValueBand =
   | 'R20,000,000+';
 
 export type AssetType = 
+  | 'unknown'
   | 'property' 
   | 'business' 
   | 'vehicle' 
@@ -58,6 +59,8 @@ export interface AlertCriteria {
   matchCount: number;
   lastTriggered?: string;
   createdAt: string;
+  recipientEmail?: string;
+  ownerName?: string;
 }
 
 export interface DeceasedEstate {

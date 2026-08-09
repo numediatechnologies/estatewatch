@@ -118,7 +118,7 @@ export const VALUE_BANDS = [
   'R5,000,000 - R20,000,000', 'R20,000,000+',
 ] as const;
 
-export const ASSET_TYPES = ['property', 'business', 'vehicle', 'shares', 'bank_accounts', 'other'] as const;
+export const ASSET_TYPES = ['unknown', 'property', 'business', 'vehicle', 'shares', 'bank_accounts', 'other'] as const;
 export const EXECUTOR_STATUSES = ['pending', 'executor_appointed', 'ld_account_lodged'] as const;
 export const CHANNELS = ['email', 'whatsapp', 'sms', 'push'] as const;
 export const PIPELINE_STAGES = ['new', 'contacted', 'pitched', 'won', 'archived'] as const;

@@ -95,6 +95,8 @@ Use `Authorization: Bearer <token>` for administrative endpoints. Vercel Cron se
 
 For accepted records the parser preserves estate number, deceased name, masked identity number, date of birth, last address, date/place of death, spouse details, executor or representative details, executor address, claim period, Gazette number/date/page/source URL, and parser version. Raw identity numbers are never stored or emailed.
 
+Production alert criteria are deliberately limited to reliably published J193 fields: surname and province/Master's Office area. Estate value and asset type remain `Unknown` and are not offered as alert filters. Email is the only production notification channel. Manual Firecrawl discovery, ingestion, and parser controls are visible only to administrators; uncertain records are rejected for review rather than enriched with invented data.
+
 The known launch fixture is Government Gazette 55077 part 1, published 31 July 2026. Its HOOSAIN entry is used in deterministic parser and alert tests. Test fixtures are source evidence, not fabricated production rows.
 
 ## Email delivery

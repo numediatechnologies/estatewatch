@@ -73,25 +73,23 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span className="text-slate-400">Gazette Issue:</span>
-          <span className="font-semibold text-slate-200">Vol 712 No 50281</span>
-          <span className="text-slate-500">|</span>
-          <span className="text-slate-400">Parsed:</span>
-          <span className="font-semibold text-emerald-400">1,420 notices today</span>
+          <span className="font-semibold text-slate-200">J193 Gazette monitoring</span>
+          <span className="text-slate-500">·</span>
+          <span className="text-emerald-400">Deterministic parsing</span>
         </div>
 
         {/* Right Actions & Persona Selector */}
         <div className="flex items-center gap-2.5">
           
           {/* Quick Simulation Trigger Button */}
-          <button
+          {currentUser?.role === 'admin' && <button
             onClick={onOpenSimulateModal}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-lg shadow-md shadow-amber-500/10 transition-all cursor-pointer"
             title="Simulate a new Gazette notice match to test alert delivery"
           >
             <Zap className="w-3.5 h-3.5 fill-current" />
             <span className="hidden md:inline">Test Gazette Alert</span>
-          </button>
+          </button>}
 
           {/* Persona Selector Dropdown */}
           <div className="relative">
@@ -153,8 +151,8 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-slate-950 font-extrabold text-[10px] flex items-center justify-center animate-pulse">
-                {unreadCount}
+              <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-amber-400 text-slate-950 font-extrabold text-[9px] leading-none flex items-center justify-center border-2 border-slate-900 shadow-sm">
+                {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
           </button>

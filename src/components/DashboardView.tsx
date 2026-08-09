@@ -30,27 +30,28 @@ interface DashboardViewProps {
   onSelectEstate: (estate: DeceasedEstate) => void;
   onNavigateToTab: (tab: any) => void;
   onOpenSimulateModal: () => void;
+  isAdmin?: boolean;
 }
 
 const ROLE_RECOMMENDATIONS: Record<UserRole, { title: string; strategy: string; focus: string }> = {
   attorney: {
     title: 'Fiduciary & Probate Lead Strategy',
-    strategy: 'Focus on pending status estates in Gauteng & Western Cape over R1M to pitch estate administration services before L&D account lodging.',
-    focus: 'Top Target: Section 29 Gazette Notices where executor is not yet appointed or family nominee is listed.'
+    strategy: 'Monitor surnames and Master’s Office areas relevant to your practice, then verify the published representative and claim period.',
+    focus: 'Evidence available: J193 deceased details, representative, address, office and claim period.'
   },
   investor: {
     title: 'Off-Market Probate Property Acquisition',
-    strategy: 'Filter for estates tagged with property assets in coastal Western Cape or Sandton/Centurion. Probate sellers value fast, certainty-backed cash offers.',
-    focus: 'Top Target: Estates with L&D accounts lodged or pending property sales.'
+    strategy: 'Monitor relevant surnames and provinces, then conduct separate lawful property research after reviewing the Gazette record.',
+    focus: 'J193 does not reliably identify property or estate value.'
   },
   tracer: {
     title: 'Heir & Unclaimed Inheritance Tracing',
-    strategy: 'Set surname fuzzy-match alerts for high net worth estates in rural or historical mining districts with uncontacted heirs.',
+    strategy: 'Set surname alerts across selected provinces and review spouse, address and representative fields from the source notice.',
     focus: 'Top Target: Estate notices with missing executor details or out-of-province death notices.'
   },
   funeral: {
     title: 'Memorial & Funeral Services Coordination',
-    strategy: 'Monitor local magisterial district death notices within 72 hours of occurrence for family outreach.',
+    strategy: 'Monitor local Master’s Office areas and use published dates without assuming immediate publication after death.',
     focus: 'Top Target: Recent Section 29 notices in your local district.'
   },
   debt_collector: {
@@ -60,8 +61,8 @@ const ROLE_RECOMMENDATIONS: Record<UserRole, { title: string; strategy: string; 
   },
   financial_advisor: {
     title: 'Policy & Pension Payout Tracing',
-    strategy: 'Identify deceased estate holders with high asset values to assist surviving spouses with estate liquidity and policy claims.',
-    focus: 'Top Target: High-value estates (R5M+) across Gauteng, KZN, and Western Cape.'
+    strategy: 'Use surname and province alerts, then verify policy or pension relationships through appropriate private records.',
+    focus: 'J193 does not publish reliable estate value or financial-product holdings.'
   }
 };
 
@@ -72,7 +73,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   pipeline,
   onSelectEstate,
   onNavigateToTab,
-  onOpenSimulateModal
+  onOpenSimulateModal,
+  isAdmin = false,
 }) => {
   const totalPipelineValue = pipeline.reduce((acc, item) => acc + (item.valueEstimate || 0), 0);
   const activeAlertsCount = alerts.filter(a => a.isActive).length;
@@ -91,7 +93,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
                 Persona Workflow Active
               </span>
-              <span className="text-xs text-slate-400">• South Africa Gazette v50281</span>
+              <span className="text-xs text-slate-400">• Verified J193 fields</span>
             </div>
             <h2 className="text-xl font-bold text-white tracking-tight">
               {ROLE_RECOMMENDATIONS[currentRole].title}
@@ -102,13 +104,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
+            {isAdmin && <button
               onClick={onOpenSimulateModal}
               className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/10 transition-all cursor-pointer flex items-center gap-1.5"
             >
               <Zap className="w-4 h-4 fill-current" />
               Test Gazette Alert Run
-            </button>
+            </button>}
             <button
               onClick={() => onNavigateToTab('alerts')}
               className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 transition-colors cursor-pointer flex items-center gap-1.5"
@@ -131,7 +133,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="text-2xl font-bold text-white tracking-tight">{activeAlertsCount}</div>
           <div className="text-[11px] text-emerald-400 flex items-center gap-1 pt-1">
             <CheckCircle2 className="w-3 h-3" />
-            <span>Scanning WhatsApp & Email</span>
+            <span>Verified email matching</span>
           </div>
         </div>
 
@@ -142,7 +144,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="text-2xl font-bold text-white tracking-tight">{estates.length}</div>
           <div className="text-[11px] text-slate-400 pt-1">
-            <span>From 1,420 Gazette notices</span>
+            <span>Persisted Gazette records</span>
           </div>
         </div>
 
@@ -161,12 +163,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
           <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>OCR Parser Health</span>
+            <span>Parser Mode</span>
             <Sparkles className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-2xl font-bold text-emerald-400 tracking-tight">99.4%</div>
+          <div className="text-lg font-bold text-emerald-400 tracking-tight">Deterministic</div>
           <div className="text-[11px] text-slate-400 pt-1">
-            <span>Automated Field Extraction</span>
+            <span>Uncertain records rejected</span>
           </div>
         </div>
 
@@ -288,14 +290,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             ))}
           </div>
 
-          {/* WhatsApp Channel Connected Box */}
-          <div className="bg-emerald-950/30 border border-emerald-800/40 rounded-xl p-3.5 space-y-2">
+          <div className="bg-blue-950/30 border border-blue-800/40 rounded-xl p-3.5 space-y-2">
             <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
               <MessageSquare className="w-4 h-4" />
-              WhatsApp Instant Alerts Enabled
+              Verified email alerts enabled
             </div>
             <p className="text-[11px] text-slate-300 leading-relaxed">
-              Alerts dispatch instantly to <strong className="text-emerald-300">+27 82 *** 9120</strong> via WhatsApp Business API upon gazette publication.
+              Alerts are sent after a parsed Gazette record matches an active surname or province rule. Each email links to the exact online record.
             </p>
           </div>
 

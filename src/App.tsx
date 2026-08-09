@@ -272,7 +272,7 @@ export function App() {
           )}
         </div>
         <div className="hidden sm:flex items-center gap-3 text-[11px] text-slate-400">
-          <span>Notifications Engine: <strong className="text-amber-400">Nodemailer HTML Email Enabled</strong></span>
+          <span>Notifications Engine: <strong className="text-amber-400">Resend Email Enabled</strong></span>
         </div>
       </div>
 
@@ -296,6 +296,7 @@ export function App() {
           onTabChange={setActiveTab}
           matchesCount={estates.length}
           pipelineCount={pipeline.length}
+          isAdmin={currentUser?.role === 'admin'}
         />
 
         {/* Right Main Content Stage */}
@@ -310,6 +311,7 @@ export function App() {
               onSelectEstate={setSelectedEstate}
               onNavigateToTab={setActiveTab}
               onOpenSimulateModal={() => setSimulateModalOpen(true)}
+              isAdmin={currentUser?.role === 'admin'}
             />
           )}
 
@@ -328,6 +330,8 @@ export function App() {
               onCreateAlert={handleCreateAlert}
               onToggleAlert={handleToggleAlert}
               onDeleteAlert={handleDeleteAlert}
+              defaultRecipientEmail={currentUser?.email}
+              defaultOwnerName={currentUser?.name}
             />
           )}
 
@@ -342,7 +346,14 @@ export function App() {
           )}
 
           {activeTab === 'ingestion' && (
-            <IngestionScannerView />
+            currentUser?.role === 'admin' ? <IngestionScannerView /> : (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
+                <Bot className="w-12 h-12 text-amber-400 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">Administrator access required</h3>
+                <p className="text-slate-400 mb-6">Gazette ingestion and parser controls are restricted to administrators.</p>
+                <button onClick={() => setShowLoginModal(true)} className="bg-amber-500 text-slate-950 px-6 py-2 rounded-xl font-semibold">Administrator sign in</button>
+              </div>
+            )
           )}
 
           {activeTab === 'admin' && (

@@ -117,11 +117,11 @@ export const BillingView: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="font-semibold text-emerald-400">WhatsApp Instant Push Alerts</span>
+                <span className="font-semibold text-emerald-400">Verified Gazette Email Alerts</span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>Email & SMS Channel Sync</span>
+                <span>Direct Links to Estate Records</span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />
