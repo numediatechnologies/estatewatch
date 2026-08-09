@@ -1,7 +1,7 @@
 # Firecrawl integration
 
 The canonical implementation is `server/firecrawlDiscovery.ts`. It uses the pinned
-Firecrawl SDK and its Agent API to inspect paginated South African `J193` search
+Firecrawl SDK and its standard Scrape API to inspect paginated South African `J193` search
 results from gazettes.africa. Results are limited to a rolling four-month window,
 validated with Zod, deduplicated by PDF URL, and shared by the CLI and API.
 
@@ -19,4 +19,6 @@ notification recording. Both write-capable endpoints require
 `Authorization: Bearer $ADMIN_API_TOKEN` in production.
 
 The live smoke test requires `FIRECRAWL_API_KEY`. It is deliberately excluded from
-CI because Firecrawl calls consume credits. See the main README for setup.
+CI because Firecrawl calls consume credits. Agent is intentionally not used for
+discovery: a normal scrape is faster, deterministic, and substantially cheaper.
+See the main README for setup.

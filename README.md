@@ -2,7 +2,7 @@
 
 ## Firecrawl J193 quick start
 
-EstateWatch uses Firecrawl Agent to traverse the South African `J193` results on
+EstateWatch uses Firecrawl Scrape to traverse the South African `J193` results on
 gazettes.africa. It starts at page 1, searches the current year (and previous year
 when necessary), and stops when a result falls outside the rolling four-month window.
 The shared implementation lives in `server/firecrawlDiscovery.ts` and is used by the
@@ -45,7 +45,7 @@ curl -X POST http://localhost:5050/api/run-fetch \
   --data '{"maxPages":1}'
 ```
 
-The live test is intentionally excluded from `npm test`. Firecrawl Agent calls incur
+The live test is intentionally excluded from `npm test`. Firecrawl calls incur
 credits and require network access. Production deployments must configure
 `FIRECRAWL_API_KEY`, `DATABASE_URL`, `ADMIN_API_TOKEN`, and `APP_URL` as server-side
 environment variables.
