@@ -1,4 +1,5 @@
 import { query } from './db.js';
+import { identityFingerprint, isValidSouthAfricanId, scrubIdentityNumbers } from './identity.js';
 
 export async function initializeDatabase() {
   console.log('⚡ Initializing Neon PostgreSQL Database Schema...');
@@ -40,6 +41,8 @@ export async function initializeDatabase() {
       ALTER TABLE estates ADD COLUMN IF NOT EXISTS gazette_page INT;
       ALTER TABLE estates ADD COLUMN IF NOT EXISTS source_url TEXT;
       ALTER TABLE estates ADD COLUMN IF NOT EXISTS parser_version VARCHAR(50);
+      ALTER TABLE estates ADD COLUMN IF NOT EXISTS id_number_hash VARCHAR(64);
+      CREATE INDEX IF NOT EXISTS estates_id_number_hash_idx ON estates (id_number_hash) WHERE id_number_hash IS NOT NULL;
     `);
 
     // 2. Alerts Table
@@ -63,6 +66,9 @@ export async function initializeDatabase() {
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS owner_name VARCHAR(255);
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS recipient_email VARCHAR(255);
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS recipient_phone VARCHAR(30);
+      ALTER TABLE alerts ADD COLUMN IF NOT EXISTS id_number_hash VARCHAR(64);
+      ALTER TABLE alerts ADD COLUMN IF NOT EXISTS id_number_match_masked VARCHAR(20);
+      CREATE INDEX IF NOT EXISTS alerts_id_number_hash_idx ON alerts (id_number_hash) WHERE id_number_hash IS NOT NULL;
     `);
 
     // 3. Pipeline Table
@@ -136,6 +142,23 @@ export async function initializeDatabase() {
         status VARCHAR(50)
       );
     `);
+
+    // One-time privacy backfill for records ingested before fingerprint support.
+    if (process.env.IDENTITY_MATCH_SECRET) {
+      const legacy = await query(`SELECT id, raw_notice_snippet FROM estates WHERE raw_notice_snippet ~ '\\m[0-9]{13}\\M'`);
+      if (legacy.rows.length) {
+        const values: unknown[] = [];
+        const placeholders = legacy.rows.map((row: any, index: number) => {
+          const candidates = String(row.raw_notice_snippet || '').match(/\b\d{13}\b/g) || [];
+          const identity = candidates.find(isValidSouthAfricanId);
+          values.push(row.id, identity ? identityFingerprint(identity) : null, scrubIdentityNumbers(row.raw_notice_snippet));
+          const offset = index * 3;
+          return `($${offset + 1}::varchar,$${offset + 2}::varchar,$${offset + 3}::text)`;
+        });
+        await query(`UPDATE estates AS estate SET id_number_hash=COALESCE(estate.id_number_hash, incoming.identity_hash), raw_notice_snippet=incoming.snippet FROM (VALUES ${placeholders.join(',')}) AS incoming(id, identity_hash, snippet) WHERE estate.id=incoming.id`, values);
+      }
+      console.log(`✅ Privacy backfill scrubbed ${legacy.rowCount || 0} legacy estate snippets.`);
+    }
 
     console.log('✅ Database Schema successfully verified / created.');
 

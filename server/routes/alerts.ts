@@ -3,6 +3,7 @@ import { query } from '../db.js';
 import { alertSchema } from '../types.js';
 import { mapAlertRow } from '../mappers.js';
 import { validate } from '../validate.js';
+import { identityFingerprint, isValidSouthAfricanId, maskSouthAfricanId } from '../identity.js';
 
 export const alertsRouter = Router();
 
@@ -18,12 +19,16 @@ alertsRouter.get('/', async (_req, res) => {
 alertsRouter.post('/', validate(alertSchema), async (req, res) => {
   try {
     const a = req.body;
+    if (a.idNumberMatch && !isValidSouthAfricanId(a.idNumberMatch)) return res.status(400).json({ error: 'Enter a valid South African identity number' });
+    const idNumberHash = a.idNumberMatch ? identityFingerprint(a.idNumberMatch) : null;
+    const idNumberMatchMasked = a.idNumberMatch ? maskSouthAfricanId(a.idNumberMatch) : null;
     const id = a.id || `alt-${Date.now()}`;
     await query(
       `INSERT INTO alerts (
         id, name, surname_match, provinces, districts, value_bands, asset_types,
-        executor_status, channels, is_active, match_count, last_triggered, created_at, recipient_email, recipient_phone, owner_name
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        executor_status, channels, is_active, match_count, last_triggered, created_at, recipient_email, recipient_phone, owner_name,
+        id_number_hash, id_number_match_masked
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         surname_match = EXCLUDED.surname_match,
@@ -36,12 +41,15 @@ alertsRouter.post('/', validate(alertSchema), async (req, res) => {
         is_active = EXCLUDED.is_active,
         recipient_email = EXCLUDED.recipient_email,
         recipient_phone = EXCLUDED.recipient_phone,
-        owner_name = EXCLUDED.owner_name;`,
+        owner_name = EXCLUDED.owner_name,
+        id_number_hash = EXCLUDED.id_number_hash,
+        id_number_match_masked = EXCLUDED.id_number_match_masked;`,
       [
         id, a.name, a.surnameMatch || null, a.provinces, a.districts || [],
         a.valueBands, a.assetTypes, a.executorStatus || [], a.channels,
         a.isActive ?? true, a.matchCount || 0, a.lastTriggered || null,
         a.createdAt || new Date().toISOString().substring(0, 10), a.recipientEmail || null, a.recipientPhone || null, a.ownerName || null,
+        idNumberHash, idNumberMatchMasked,
       ]
     );
     const saved = await query('SELECT * FROM alerts WHERE id = $1', [id]);

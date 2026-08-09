@@ -196,8 +196,8 @@ export function App() {
 
   // Alert Rules Handlers
   const handleCreateAlert = async (newAlert: AlertCriteria) => {
-    setAlerts(prev => [newAlert, ...prev]);
-    await createAlertApi(newAlert);
+    const saved = await createAlertApi(newAlert);
+    if (saved) setAlerts(prev => [saved, ...prev]);
   };
 
   const handleToggleAlert = async (id: string) => {

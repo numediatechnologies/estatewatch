@@ -58,6 +58,12 @@ export function matchEstateToAlerts(estate: DeceasedEstate, alerts: AlertCriteri
       const reasons: string[] = [];
       let score = 0;
 
+      // An exact identity fingerprint is decisive and intentionally overrides broader criteria.
+      if (a.idNumberHash) {
+        if (estate.idNumberHash !== a.idNumberHash) return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, recipientPhone: a.recipientPhone, channels: a.channels, ownerName: a.ownerName };
+        return { alertId: a.id, alertName: a.name, score: 100, reasons: ['Exact South African ID'], recipientEmail: a.recipientEmail, recipientPhone: a.recipientPhone, channels: a.channels, ownerName: a.ownerName };
+      }
+
       if (a.surnameMatch) {
         if (!surnameMatches(estate, a.surnameMatch)) {
           return { alertId: a.id, alertName: a.name, score: 0, reasons, recipientEmail: a.recipientEmail, recipientPhone: a.recipientPhone, channels: a.channels, ownerName: a.ownerName };

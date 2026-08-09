@@ -49,6 +49,8 @@ export interface AlertCriteria {
   id: string;
   name: string;
   surnameMatch?: string;
+  idNumberMatch?: string;
+  idNumberMatchMasked?: string;
   provinces: Province[];
   districts?: string[];
   valueBands: EstateValueBand[];

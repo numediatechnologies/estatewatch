@@ -13,4 +13,14 @@ describe('alert matching', () => {
   it('matches the combined surname and province criteria', () => {
     expect(matchEstateToAlerts({ ...estate, deceasedName: 'HOOSAIN, ROKEYA' }, [alert])).toHaveLength(1);
   });
+
+  it('treats an exact identity fingerprint as decisive over broader criteria', () => {
+    const identityAlert = { ...alert, surnameMatch: 'NOT-SMITH', provinces: ['Western Cape'], idNumberHash: 'same-fingerprint' };
+    expect(matchEstateToAlerts({ ...estate, idNumberHash: 'same-fingerprint' }, [identityAlert])).toMatchObject([{ score: 100, reasons: ['Exact South African ID'] }]);
+  });
+
+  it('does not match a different identity even when broader criteria match', () => {
+    const identityAlert = { ...alert, surnameMatch: 'SMITH', idNumberHash: 'different-fingerprint' };
+    expect(matchEstateToAlerts({ ...estate, idNumberHash: 'estate-fingerprint' }, [identityAlert])).toEqual([]);
+  });
 });

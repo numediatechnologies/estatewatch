@@ -7,6 +7,7 @@ export interface DeceasedEstate {
   sourceId: string;
   deceasedName: string;
   idNumberMasked: string;
+  idNumberHash?: string;
   dateOfDeath: string;
   gazetteDate: string;
   province: string;
@@ -53,6 +54,8 @@ export interface AlertCriteria {
   recipientEmail?: string;
   recipientPhone?: string;
   ownerName?: string;
+  idNumberHash?: string;
+  idNumberMatchMasked?: string;
 }
 
 export interface PipelineItem {
@@ -87,6 +90,7 @@ export interface DbEstateRow {
   source_id: string;
   deceased_name: string;
   id_number_masked: string;
+  id_number_hash?: string;
   date_of_death: string;
   gazette_date: string;
   province: string;
@@ -162,6 +166,7 @@ export const alertSchema = z
     id: z.string().min(1).optional(),
     name: z.string().min(2).max(255),
     surnameMatch: z.string().max(255).optional(),
+    idNumberMatch: z.string().regex(/^\d{13}$/, 'South African ID must contain exactly 13 digits').optional(),
     provinces: z.array(z.enum(PROVINCES)).default([]),
     districts: z.array(z.string().max(100)).optional(),
     valueBands: z.array(z.enum(VALUE_BANDS)).default([]),

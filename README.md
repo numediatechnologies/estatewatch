@@ -48,6 +48,7 @@ CLICKATELL_API_KEY           optional Clickatell key for secondary SMS alerts
 APP_URL                      canonical public application URL
 ADMIN_API_TOKEN              bearer token for administrative APIs
 AUTH_SESSION_SECRET          signs HttpOnly application sessions
+IDENTITY_MATCH_SECRET        HMAC secret for privacy-preserving exact SA ID matching
 ADMIN_EMAIL                  verified Neon account granted administrator role
 CRON_SECRET                  Vercel Cron bearer secret
 ESTATEWATCH_ALERT_EMAIL      optional controlled-test fallback recipient

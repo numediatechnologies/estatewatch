@@ -52,5 +52,6 @@ export function mapAlertRow(row: any): AlertCriteria {
     recipientEmail: row.recipient_email || undefined,
     recipientPhone: row.recipient_phone || undefined,
     ownerName: row.owner_name || undefined,
+    idNumberMatchMasked: row.id_number_match_masked || undefined,
   };
 }

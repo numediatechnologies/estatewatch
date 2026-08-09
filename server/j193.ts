@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { DeceasedEstate } from './types.js';
+import { identityFingerprint, isValidSouthAfricanId, maskSouthAfricanId, scrubIdentityNumbers } from './identity.js';
 
 export const PARSER_VERSION = 'j193-v1';
 const RECORD_START = /\b(\d{3,6}\/\d{4})\s*[—-]\s*\(2\)/g;
@@ -38,21 +39,6 @@ function isValidDate(value?: string): value is string {
   return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
 }
 
-function isValidSouthAfricanId(value?: string): value is string {
-  if (!value || !/^\d{13}$/.test(value)) return false;
-  const birthDate = `${Number(value.slice(0, 2)) >= 30 ? '19' : '20'}${value.slice(0, 2)}-${value.slice(2, 4)}-${value.slice(4, 6)}`;
-  if (!isValidDate(birthDate)) return false;
-  const digits = [...value].map(Number);
-  let sum = 0;
-  for (let index = 0; index < 12; index += 1) sum += index % 2 === 0 ? digits[index] : Math.floor(digits[index] * 2 / 10) + (digits[index] * 2 % 10);
-  return (10 - (sum % 10)) % 10 === digits[12];
-}
-
-function maskId(value?: string): string {
-  if (!isValidSouthAfricanId(value)) return 'Unknown';
-  return `${value.slice(0, 6)}****${value.slice(-3)}`;
-}
-
 function provinceFor(masterOffice: string, address: string): DeceasedEstate['province'] | null {
   const value = `${masterOffice} ${address}`.toLowerCase();
   if (/johannesburg|pretoria|gauteng|benoni|centurion|roodepoort|germiston/.test(value)) return 'Gauteng';
@@ -85,13 +71,14 @@ export function parseJ193Record(record: string, source: { url: string; published
   const executorName = executorParts.shift() || 'Unknown';
   const id = `est-${createHash('sha256').update(`${source.url}|${estateNumber}`).digest('hex').slice(0, 24)}`;
   return { estate: {
-    id, sourceId: `${source.gazetteNumber}:${estateNumber}`, deceasedName, idNumberMasked: maskId(idNumber),
+    id, sourceId: `${source.gazetteNumber}:${estateNumber}`, deceasedName, idNumberMasked: maskSouthAfricanId(idNumber),
+    idNumberHash: isValidSouthAfricanId(idNumber) && process.env.IDENTITY_MATCH_SECRET ? identityFingerprint(idNumber) : undefined,
     dateOfBirth, lastAddress, dateOfDeath, gazetteDate: source.publishedDate, province, district: masterOffice,
     masterOffice, estateNumber, executorName, executorAddress: executorParts.join(', '), executorContact: 'Unknown',
     executorEmail: '', spouseDetails: /^[- N\/A]+$/i.test(spouseField.trim()) ? undefined : spouseField.trim(),
     claimPeriodDays: Number(claimField.match(/\d+/)?.[0]) || undefined, gazetteNumber: source.gazetteNumber,
     gazettePage: source.page, sourceUrl: source.url, parserVersion: PARSER_VERSION, valueBand: 'Unknown',
-    assetTypes: ['unknown'], rawNoticeSnippet: record.slice(0, 1000), gazetteRef: `Government Gazette ${source.gazetteNumber}`,
+    assetTypes: ['unknown'], rawNoticeSnippet: scrubIdentityNumbers(record).slice(0, 1000), gazetteRef: `Government Gazette ${source.gazetteNumber}`,
     status: 'pending', hasProperty: false,
   }};
 }

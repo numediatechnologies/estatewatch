@@ -4,7 +4,7 @@ import { BellRing, CheckCircle2, Mail, Plus, ShieldCheck, Smartphone, Trash2 } f
 
 interface AlertBuilderViewProps {
   alerts: AlertCriteria[];
-  onCreateAlert: (newAlert: AlertCriteria) => void;
+  onCreateAlert: (newAlert: AlertCriteria) => Promise<void>;
   onToggleAlert: (id: string) => void;
   onDeleteAlert: (id: string) => void;
   defaultRecipientEmail?: string;
@@ -21,6 +21,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
 }) => {
   const [alertName, setAlertName] = useState('Gazette estate alert');
   const [surnameMatch, setSurnameMatch] = useState('');
+  const [idNumberMatch, setIdNumberMatch] = useState('');
   const [selectedProvinces, setSelectedProvinces] = useState<Province[]>([]);
   const [recipientEmail, setRecipientEmail] = useState(defaultRecipientEmail);
   const [smsEnabled, setSmsEnabled] = useState(false);
@@ -34,13 +35,14 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
   const toggleProvince = (province: Province) => setSelectedProvinces((current) =>
     current.includes(province) ? current.filter((item) => item !== province) : [...current, province]);
 
-  const handleCreate = (event: React.FormEvent) => {
+  const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!alertName.trim() || !recipientEmail.trim()) return;
-    onCreateAlert({
+    await onCreateAlert({
       id: `alt-${Date.now()}`,
       name: alertName.trim(),
       surnameMatch: surnameMatch.trim() || undefined,
+      idNumberMatch: idNumberMatch.trim() || undefined,
       provinces: selectedProvinces,
       valueBands: [],
       assetTypes: [],
@@ -52,6 +54,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
       recipientPhone: smsEnabled ? recipientPhone.trim() : undefined,
       ownerName: defaultOwnerName || undefined,
     });
+    setIdNumberMatch('');
     setSavedSuccess(true);
     window.setTimeout(() => setSavedSuccess(false), 3000);
   };
@@ -60,7 +63,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
       <div className="flex items-center gap-2 text-amber-400 font-bold text-sm"><BellRing className="w-5 h-5" />Reliable Gazette alerts</div>
       <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
-        Alerts use fields consistently available in J193 notices: deceased surname, province or Master’s Office area, and publication details. Estate value and asset type are not published reliably, so they are not used for matching.
+        An exact South African ID is the highest-priority match. It identifies one person and overrides broader surname and province criteria. IDs are validated, masked, and stored only as a secure fingerprint. Estate value and asset type are not used.
       </p>
       <div className="flex items-center gap-2 text-[11px] text-emerald-300"><ShieldCheck className="w-4 h-4" />Email is always sent. SMS can be enabled as an optional secondary delivery channel.</div>
     </div>
@@ -76,6 +79,10 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
             <input value={surnameMatch} onChange={(event) => setSurnameMatch(event.target.value)} placeholder="e.g. HOOSAIN" className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-amber-500" />
           </label>
         </div>
+        <label className="text-xs font-bold text-slate-300 block">South African ID number <span className="text-amber-400">(highest priority)</span>
+          <input inputMode="numeric" autoComplete="off" value={idNumberMatch} onChange={(event) => setIdNumberMatch(event.target.value.replace(/\D/g, '').slice(0, 13))} placeholder="13 digits" pattern="[0-9]{13}" className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-amber-500" />
+          <span className="block mt-1 font-normal text-slate-500">Optional. An exact ID match takes precedence; the full number is never stored or displayed.</span>
+        </label>
         <label className="text-xs font-bold text-slate-300 block">Notification email *
           <input type="email" value={recipientEmail} onChange={(event) => setRecipientEmail(event.target.value)} placeholder="you@example.com" required className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-amber-500" />
         </label>
@@ -94,7 +101,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
           <div className="flex flex-wrap gap-2">{ALL_PROVINCES.map((province) => <button type="button" key={province} onClick={() => toggleProvince(province)} className={`px-3 py-1.5 rounded-xl text-xs font-semibold border ${selectedProvinces.includes(province) ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-slate-950 text-slate-400 border-slate-800'}`}>{province}</button>)}</div>
         </div>
         <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl text-xs text-slate-300 leading-relaxed">
-          Email me when a newly ingested J193 record {surnameMatch.trim() ? <>contains surname <strong className="text-white">{surnameMatch.trim()}</strong></> : 'matches any surname'} in <strong className="text-white">{selectedProvinces.join(', ') || 'any province'}</strong>.
+          {idNumberMatch ? <>Email me only for the exact ID <strong className="text-white">{idNumberMatch.slice(0, 6)}****{idNumberMatch.slice(-3)}</strong>. This overrides surname and province.</> : <>Email me when a newly ingested J193 record {surnameMatch.trim() ? <>contains surname <strong className="text-white">{surnameMatch.trim()}</strong></> : 'matches any surname'} in <strong className="text-white">{selectedProvinces.join(', ') || 'any province'}</strong>.</>}
         </div>
         <div className="flex items-center justify-between gap-3">
           {savedSuccess ? <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />Alert saved and active</span> : <span />}
@@ -107,6 +114,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
         {alerts.map((alert) => <div key={alert.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
           <div className="flex items-start justify-between gap-2"><div><h4 className="font-bold text-xs text-white">{alert.name}</h4><span className="text-[10px] text-slate-500">Created {alert.createdAt}</span></div><button onClick={() => onToggleAlert(alert.id)} className={`px-2 py-0.5 rounded text-[10px] font-bold ${alert.isActive ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-500'}`}>{alert.isActive ? 'ACTIVE' : 'PAUSED'}</button></div>
           <div className="text-[11px] text-slate-400 space-y-1">
+            {alert.idNumberMatchMasked && <div>Exact ID: <strong className="text-amber-300">{alert.idNumberMatchMasked}</strong> (priority)</div>}
             <div>Surname: <strong className="text-slate-200">{alert.surnameMatch || 'Any'}</strong></div>
             <div>Province: <strong className="text-slate-200">{alert.provinces.length ? alert.provinces.join(', ') : 'All'}</strong></div>
             <div className="flex items-center gap-1"><Mail className="w-3 h-3" /><span>{alert.recipientEmail || 'Recipient not configured'}</span></div>
