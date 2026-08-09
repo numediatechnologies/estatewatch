@@ -10,12 +10,13 @@
     "dev": "concurrently \"npm run server\" \"vite --host 0.0.0.0 --port 3000\"",
     "server": "tsx server/index.ts",
     "db:init": "tsx server/initDb.ts",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && tsx scripts/generate-seo-pages.ts",
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:firecrawl:live": "tsx scripts/test-firecrawl-live.ts",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
-    "fetch-gazettes": "tsx scripts/firecrawl-fetch.ts"
+    "fetch-gazettes": "tsx scripts/firecrawl-fetch.ts",
+    "seo:generate": "tsx scripts/generate-sitemap.ts"
   },
   "dependencies": {
     "@google-cloud/documentai": "^9.6.2",

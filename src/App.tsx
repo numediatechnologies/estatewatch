@@ -44,8 +44,11 @@ import { restoreNeonSession, signOutFromNeon } from './services/neonAuth';
 
 import { Bot, Check, X, Bell, MessageSquare, Zap, Database, Mail } from 'lucide-react';
 import { UserAccount } from './types';
+import { SeoHead } from './components/SeoHead';
+import { geographicPage } from './seo';
 
 export function App() {
+  const geoPage = geographicPage();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [currentRole, setCurrentRole] = useState<UserRole>('attorney');
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
@@ -250,6 +253,7 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+      <SeoHead />
 
       {/* Operational details are visible to administrators only. */}
       {currentUser?.role === 'admin' && <div className="bg-slate-900 border-b border-slate-800 px-4 py-1.5 flex items-center justify-between text-xs">
@@ -301,6 +305,7 @@ export function App() {
 
         {/* Right Main Content Stage */}
         <main className="flex-1 min-w-0">
+          {geoPage && <section className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-950/20 p-5"><p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Built for South Africa</p><h1 className="mt-1 text-xl font-bold text-white">Deceased estate alerts in {geoPage.name}</h1><p className="mt-2 max-w-2xl text-xs leading-relaxed text-slate-300">Find relevant Government Gazette estate notices and set a precise alert by South African identity number, surname or province. EstateWatch helps you take a clear next step.</p><button onClick={() => setActiveTab('alerts')} className="mt-3 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400">Start Alert</button></section>}
 
           {activeTab === 'dashboard' && (
             <DashboardView

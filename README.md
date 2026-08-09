@@ -94,7 +94,14 @@ npm run lint                 # TypeScript validation
 npm run build                # production build
 npm run fetch-gazettes       # same normalized discovery implementation as API
 npm run test:firecrawl:live  # opt-in, bounded live Firecrawl Scrape request
+npm run seo:generate         # regenerate geographic sitemap URLs
 ```
+
+## Search and geographic discovery
+
+EstateWatch uses one canonical domain, `https://estatewatch.marketdirect.co.za`, with South African English metadata and geographic pages for all nine provinces and key Master’s Office cities. `npm run seo:generate` creates `public/sitemap.xml` from the shared location list used by the application. `public/robots.txt` points search engines to that sitemap and excludes API routes. Every geographic URL has a unique title, description, canonical URL, `en_ZA` social metadata and structured data naming MarketDirect.co.za as the service provider.
+
+Do not add estate-record detail URLs, identity numbers, alert criteria, account pages or API URLs to the sitemap. Geographic pages describe the service; they do not expose subscriber-only Gazette PDFs.
 
 The live Firecrawl test consumes credits, requires `FIRECRAWL_API_KEY`, and is never part of the ordinary test command or CI by default.
 

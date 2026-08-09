@@ -22,8 +22,16 @@
       "dest": "/server/index.ts"
     },
     {
-      "src": "/(.*)",
+      "src": "/(assets/.*|robots\\.txt|sitemap\\.xml|site\\.webmanifest)",
       "dest": "/dist/$1"
+    },
+    {
+      "src": "/deceased-estate-alerts/([^/]+)/?",
+      "dest": "/dist/deceased-estate-alerts/$1/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/index.html"
     }
   ],
   "crons": [{ "path": "/api/cron/ingest", "schedule": "30 4 * * 1-6" }]

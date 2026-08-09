@@ -1,0 +1,9 @@
+{
+  "name": "EstateWatch by MarketDirect.co.za",
+  "short_name": "EstateWatch",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#f59e0b",
+  "lang": "en-ZA"
+}
