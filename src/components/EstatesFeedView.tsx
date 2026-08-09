@@ -24,13 +24,15 @@ interface EstatesFeedViewProps {
   onSelectEstate: (estate: DeceasedEstate) => void;
   onAddToPipeline: (estate: DeceasedEstate, stage: PipelineStage, notes: string) => void;
   pipelineEstateIds: string[];
+  isAdmin?: boolean;
 }
 
 export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
   estates,
   onSelectEstate,
   onAddToPipeline,
-  pipelineEstateIds
+  pipelineEstateIds,
+  isAdmin = false,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvince, setSelectedProvince] = useState<Province | 'all'>('all');
@@ -65,6 +67,7 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
   }, [estates]);
 
   const handleExportCsv = () => {
+    if (!isAdmin) return;
     const headers = ['Deceased Name', 'Master Ref', 'Province', 'District', 'Value Band', 'Executor', 'Contact', 'Gazette Date'];
     const rows = filteredEstates.map(e => [
       `"${e.deceasedName}"`,
@@ -142,13 +145,13 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
               </button>
             </div>
 
-            <button
+            {isAdmin && <button
               onClick={handleExportCsv}
               className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <Download className="w-3.5 h-3.5 text-amber-400" />
               <span>Export CSV</span>
-            </button>
+            </button>}
 
           </div>
 

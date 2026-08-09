@@ -326,6 +326,7 @@ export function App() {
               onSelectEstate={setSelectedEstate}
               onAddToPipeline={handleAddToPipeline}
               pipelineEstateIds={pipelineEstateIds}
+              isAdmin={currentUser?.role === 'admin'}
             />
           )}
 

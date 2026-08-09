@@ -129,6 +129,8 @@ Production alert criteria are deliberately limited to reliably published J193 fi
 
 Original Gazette PDF URLs are never included in public estate responses. Authenticated administrators and users with an active, unexpired subscription may request a source URL through `GET /api/estates/:id/source`. The API checks entitlement on every request; hiding the frontend button is not the security boundary. Non-subscribers see a clear upgrade prompt instead.
 
+Bulk estate-notice tools, including CSV export, are shown only to authenticated administrators. Ordinary users can search, filter and review the notices available to their account but do not see administrator export controls.
+
 Firecrawl discovery follows Gazette search pagination from page 1 up to a ten-page safety cap, stopping on an empty page or the first record outside the rolling four-month window. URLs are deduplicated during discovery, completed Gazette source URLs are skipped, estates are unique by source ID and estate number, and notifications are unique by alert, estate, and channel.
 
 The known launch fixture is Government Gazette 55077 part 1, published 31 July 2026. Its HOOSAIN entry is used in deterministic parser and alert tests. Test fixtures are source evidence, not fabricated production rows.
