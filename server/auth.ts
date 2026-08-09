@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { request as httpsRequest } from 'node:https';
 import type { Request, Response } from 'express';
 import { query } from './db.js';
 
@@ -13,6 +14,32 @@ export interface AppSession {
   role: 'user' | 'admin';
   exp: number;
 }
+
+type AuthTransport = (url: string, body: object, origin: string) => Promise<{ status: number; data: any }>;
+
+const postAuthJson: AuthTransport = (url, body, origin) => new Promise((resolve, reject) => {
+  const payload = JSON.stringify(body);
+  const request = httpsRequest(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'content-length': Buffer.byteLength(payload),
+      origin,
+    },
+  }, (response) => {
+    let responseBody = '';
+    response.setEncoding('utf8');
+    response.on('data', (chunk) => { responseBody += chunk; });
+    response.on('end', () => {
+      let data: any = {};
+      try { data = responseBody ? JSON.parse(responseBody) : {}; } catch { data = {}; }
+      resolve({ status: response.statusCode || 500, data });
+    });
+  });
+  request.on('error', reject);
+  request.setTimeout(15_000, () => request.destroy(new Error('Neon Auth request timed out')));
+  request.end(payload);
+});
 
 function secret() {
   const value = process.env.AUTH_SESSION_SECRET || process.env.ADMIN_API_TOKEN;
@@ -56,19 +83,15 @@ export function clearSessionCookie(res: Response) {
   res.clearCookie(COOKIE_NAME, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' });
 }
 
-export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string }) {
+export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string }, transport: AuthTransport = postAuthJson) {
   const baseUrl = process.env.NEON_AUTH_BASE_URL?.replace(/\/$/, '');
   if (!baseUrl) throw new Error('NEON_AUTH_BASE_URL is required');
   // Neon validates browser-style auth requests against its trusted-origin list.
   // URL.origin removes paths and trailing slashes, which are invalid in Origin.
   const origin = new URL(process.env.APP_URL || 'http://localhost:3000').origin;
-  const response = await fetch(`${baseUrl}/${mode}/email`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', origin },
-    body: JSON.stringify(body),
-  });
-  const result: any = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(result.message || result.error || 'Authentication failed'), { status: response.status });
+  const response = await transport(`${baseUrl}/${mode}/email`, body, origin);
+  const result = response.data;
+  if (response.status < 200 || response.status >= 300) throw Object.assign(new Error(result.message || result.error || 'Authentication failed'), { status: response.status });
   const user = result.user;
   if (!user?.id || !user?.email) throw new Error(mode === 'sign-up' ? 'Check your email to verify the new account before signing in.' : 'Neon did not return a verified user.');
   const email = String(user.email).toLowerCase();
