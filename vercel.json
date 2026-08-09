@@ -23,10 +23,5 @@
       "dest": "/dist/$1"
     }
   ],
-  "functions": {
-    "server/index.ts": {
-      "maxDuration": 300
-    }
-  },
   "crons": [{ "path": "/api/cron/ingest", "schedule": "30 4 * * 1-6" }]
 }

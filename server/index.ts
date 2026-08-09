@@ -115,3 +115,4 @@ if (isDirectRun) {
 }
 
 export default app;
+export const maxDuration = 300;
