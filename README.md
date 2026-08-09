@@ -33,7 +33,7 @@ npm run build
 npm run dev
 ```
 
-Production database initialization is additive and never seeds demo rows. Frontend demo data/login require explicit development-only flags. Browser authentication calls the hosted Neon Auth HTTPS endpoints and does not ship an embedded auth server.
+Production database initialization is additive and never seeds demo rows. Frontend demo data/login require explicit development-only flags. Registration and sign-in are verified by hosted Neon Auth through the EstateWatch API. The API issues a signed HttpOnly session, restores it on reload, and resolves roles server-side. Users cannot select their own role. The configured `ADMIN_EMAIL` receives administrator access and bypasses subscription/payment gates.
 
 ## Environment variables
 
@@ -46,6 +46,8 @@ RESEND_API_KEY               Resend server API key
 RESEND_FROM                  e.g. EstateWatch <alerts@tenders.marketdirect.co.za>
 APP_URL                      canonical public application URL
 ADMIN_API_TOKEN              bearer token for administrative APIs
+AUTH_SESSION_SECRET          signs HttpOnly application sessions
+ADMIN_EMAIL                  verified Neon account granted administrator role
 CRON_SECRET                  Vercel Cron bearer secret
 ESTATEWATCH_ALERT_EMAIL      optional controlled-test fallback recipient
 NEON_AUTH_BASE_URL           Neon Auth server URL

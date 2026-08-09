@@ -10,7 +10,9 @@ import { createFirecrawlClient, discoverGazettes } from './firecrawlDiscovery.js
 import { runIngestion } from './ingestService.js';
 import { query } from './db.js';
 import { initializeDatabase } from './initDb.js';
+import { authenticateWithNeon, clearSessionCookie, createSessionToken, readSession, setSessionCookie } from './auth.js';
 
+dotenv.config({ path: '.env.local' });
 dotenv.config();
 
 interface AppDependencies {
@@ -23,7 +25,8 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const configuredToken = process.env.ADMIN_API_TOKEN;
   if (!configuredToken && process.env.NODE_ENV !== 'production') return next();
   if (!configuredToken) return res.status(503).json({ error: 'ADMIN_API_TOKEN is required in production' });
-  if (req.header('authorization') !== `Bearer ${configuredToken}`) {
+  const session = readSession(req);
+  if (req.header('authorization') !== `Bearer ${configuredToken}` && session?.role !== 'admin') {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   next();
@@ -43,6 +46,30 @@ export function createApp(dependencies: AppDependencies = {
 const application = express();
 application.use(cors());
 application.use(express.json({ limit: '1mb' }));
+application.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, name } = req.body || {};
+    if (typeof email !== 'string' || typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: 'A valid email and password of at least 8 characters are required' });
+    const session = await authenticateWithNeon('sign-up', { email, password, name });
+    setSessionCookie(res, createSessionToken(session));
+    res.status(201).json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role } });
+  } catch (error: any) { res.status(error.status || 400).json({ error: error.message }); }
+});
+application.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (typeof email !== 'string' || typeof password !== 'string') return res.status(400).json({ error: 'Email and password are required' });
+    const session = await authenticateWithNeon('sign-in', { email, password });
+    setSessionCookie(res, createSessionToken(session));
+    res.json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role } });
+  } catch (error: any) { res.status(error.status || 401).json({ error: error.message }); }
+});
+application.get('/api/auth/session', (req, res) => {
+  const session = readSession(req);
+  if (!session) return res.status(401).json({ user: null });
+  res.json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role } });
+});
+application.post('/api/auth/logout', (_req, res) => { clearSessionCookie(res); res.json({ success: true }); });
 application.get('/api/health', async (_req, res) => {
   if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) {
     return res.status(503).json({ status: 'degraded', database: 'not_configured' });

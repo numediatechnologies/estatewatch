@@ -1,32 +1,17 @@
-const authUrl = (import.meta.env.VITE_NEON_AUTH_URL as string | undefined)?.replace(/\/$/, '');
+export const neonAuthConfigured = true;
 
-export const neonAuthConfigured = Boolean(authUrl);
-
-async function authRequest(path: string, init: RequestInit = {}) {
-  if (!authUrl) throw new Error('Neon Auth is not configured for this deployment.');
-  const response = await fetch(`${authUrl}/${path}`, {
-    ...init,
-    credentials: 'include',
-    headers: { 'content-type': 'application/json', ...init.headers },
+async function request(path: string, body?: object) {
+  const response = await fetch(`/api/auth/${path}`, {
+    method: body ? 'POST' : 'GET', credentials: 'include',
+    headers: body ? { 'content-type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
   });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.message || body.error || 'Authentication request failed');
-  return body;
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Authentication request failed');
+  return result.user as { id: string; email: string; name: string; role: 'user' | 'admin' };
 }
 
-export async function signInWithNeon(email: string, password: string) {
-  const result = await authRequest('sign-in/email', { method: 'POST', body: JSON.stringify({ email, password }) });
-  const user = result.user;
-  if (!user?.id || !user?.email) throw new Error('Sign-in did not create a valid session.');
-  return user as { id: string; email: string; name?: string };
-}
-
-export async function restoreNeonSession() {
-  if (!authUrl) return null;
-  const result = await authRequest('get-session');
-  return result.user || null;
-}
-
-export async function signOutFromNeon() {
-  if (authUrl) await authRequest('sign-out', { method: 'POST', body: '{}' });
-}
+export const signInWithNeon = (email: string, password: string) => request('login', { email, password });
+export const registerWithNeon = (name: string, email: string, password: string) => request('register', { name, email, password });
+export async function restoreNeonSession() { try { return await request('session'); } catch { return null; } }
+export async function signOutFromNeon() { await request('logout', {}); }

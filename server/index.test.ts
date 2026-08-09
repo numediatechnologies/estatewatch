@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createApp } from './index.js';
 import type { FirecrawlDiscoveryClient, DiscoveryResult } from './firecrawlDiscovery.js';
 import { emptyIngestResult } from './ingestTypes.js';
+import { createSessionToken } from './auth.js';
 
 const discovery: DiscoveryResult = {
   dateWindow: { from: '2026-04-09', to: '2026-08-09' }, pagesInspected: 1,
@@ -19,6 +20,21 @@ describe('Firecrawl API', () => {
     expect((await request(app).post('/api/ingest-gazettes')).status).toBe(401);
     if (previous === undefined) delete process.env.ADMIN_API_TOKEN;
     else process.env.ADMIN_API_TOKEN = previous;
+  });
+
+  it('allows a signed administrator session and rejects a signed user session', async () => {
+    const previousToken = process.env.ADMIN_API_TOKEN;
+    const previousSecret = process.env.AUTH_SESSION_SECRET;
+    process.env.ADMIN_API_TOKEN = 'automation-secret';
+    process.env.AUTH_SESSION_SECRET = 'application-session-test-secret';
+    const discover = vi.fn().mockResolvedValue(discovery);
+    const app = createApp({ discover, createClient: () => ({}) as FirecrawlDiscoveryClient, ingest: vi.fn() });
+    const adminToken = createSessionToken({ sub: 'admin-1', email: 'support@marketdirecto.co.za', name: 'Support', role: 'admin' });
+    const userToken = createSessionToken({ sub: 'user-1', email: 'user@example.com', name: 'User', role: 'user' });
+    expect((await request(app).post('/api/run-fetch').set('Cookie', `estatewatch_session=${adminToken}`)).status).toBe(200);
+    expect((await request(app).post('/api/run-fetch').set('Cookie', `estatewatch_session=${userToken}`)).status).toBe(401);
+    if (previousToken === undefined) delete process.env.ADMIN_API_TOKEN; else process.env.ADMIN_API_TOKEN = previousToken;
+    if (previousSecret === undefined) delete process.env.AUTH_SESSION_SECRET; else process.env.AUTH_SESSION_SECRET = previousSecret;
   });
 
   it('returns the normalized discovery contract', async () => {

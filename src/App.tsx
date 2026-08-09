@@ -39,7 +39,7 @@ import { BillingView } from './components/BillingView';
 import { EstateDetailModal } from './components/EstateDetailModal';
 import { SimulateMatchModal } from './components/SimulateMatchModal';
 import { LoginModal } from './components/LoginModal';
-import { signOutFromNeon } from './services/neonAuth';
+import { restoreNeonSession, signOutFromNeon } from './services/neonAuth';
 
 import { Bot, Check, X, Bell, MessageSquare, Zap, Database, Mail } from 'lucide-react';
 import { UserAccount } from './types';
@@ -49,6 +49,12 @@ export function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('attorney');
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+
+  useEffect(() => {
+    void restoreNeonSession().then((user) => {
+      if (user) setCurrentUser({ id: user.id, email: user.email, name: user.name, role: user.role, userPersona: 'attorney' });
+    });
+  }, []);
 
   // Core Data State (Initialized with mocks, updated from Neon DB)
   const demoEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_DATA === 'true';
@@ -349,7 +355,7 @@ export function App() {
           )}
 
           {activeTab === 'billing' && (
-            <BillingView />
+            <BillingView isAdmin={currentUser?.role === 'admin'} />
           )}
 
         </main>

@@ -1,10 +1,11 @@
 import { DeceasedEstate, AlertCriteria, PipelineItem, NotificationEvent } from '../types';
 
 const API_BASE = '/api';
+const apiFetch: typeof fetch = (input, init = {}) => fetch(input, { ...init, credentials: 'include' });
 
 export async function fetchHealthCheck() {
   try {
-    const res = await fetch(`${API_BASE}/health`);
+    const res = await apiFetch(`${API_BASE}/health`);
     if (!res.ok) throw new Error('Health check failed');
     return await res.json();
   } catch (err) {
@@ -15,7 +16,7 @@ export async function fetchHealthCheck() {
 
 export async function fetchEstates(): Promise<DeceasedEstate[] | null> {
   try {
-    const res = await fetch(`${API_BASE}/estates`);
+    const res = await apiFetch(`${API_BASE}/estates`);
     if (!res.ok) throw new Error('Failed to fetch estates from DB');
     return await res.json();
   } catch (err) {
@@ -26,7 +27,7 @@ export async function fetchEstates(): Promise<DeceasedEstate[] | null> {
 
 export async function createEstate(estate: DeceasedEstate): Promise<DeceasedEstate | null> {
   try {
-    const res = await fetch(`${API_BASE}/estates`, {
+    const res = await apiFetch(`${API_BASE}/estates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(estate),
@@ -41,7 +42,7 @@ export async function createEstate(estate: DeceasedEstate): Promise<DeceasedEsta
 
 export async function fetchAlerts(): Promise<AlertCriteria[] | null> {
   try {
-    const res = await fetch(`${API_BASE}/alerts`);
+    const res = await apiFetch(`${API_BASE}/alerts`);
     if (!res.ok) throw new Error('Failed to fetch alerts');
     return await res.json();
   } catch (err) {
@@ -52,7 +53,7 @@ export async function fetchAlerts(): Promise<AlertCriteria[] | null> {
 
 export async function createAlert(alert: AlertCriteria): Promise<AlertCriteria | null> {
   try {
-    const res = await fetch(`${API_BASE}/alerts`, {
+    const res = await apiFetch(`${API_BASE}/alerts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(alert),
@@ -67,7 +68,7 @@ export async function createAlert(alert: AlertCriteria): Promise<AlertCriteria |
 
 export async function toggleAlert(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/alerts/${id}/toggle`, { method: 'PATCH' });
+    const res = await apiFetch(`${API_BASE}/alerts/${id}/toggle`, { method: 'PATCH' });
     return res.ok;
   } catch (err) {
     console.error('Error toggling alert:', err);
@@ -77,7 +78,7 @@ export async function toggleAlert(id: string): Promise<boolean> {
 
 export async function deleteAlert(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/alerts/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`${API_BASE}/alerts/${id}`, { method: 'DELETE' });
     return res.ok;
   } catch (err) {
     console.error('Error deleting alert:', err);
@@ -87,7 +88,7 @@ export async function deleteAlert(id: string): Promise<boolean> {
 
 export async function fetchPipeline(): Promise<PipelineItem[] | null> {
   try {
-    const res = await fetch(`${API_BASE}/pipeline`);
+    const res = await apiFetch(`${API_BASE}/pipeline`);
     if (!res.ok) throw new Error('Failed to fetch pipeline');
     return await res.json();
   } catch (err) {
@@ -98,7 +99,7 @@ export async function fetchPipeline(): Promise<PipelineItem[] | null> {
 
 export async function addPipelineItem(item: Partial<PipelineItem>): Promise<PipelineItem | null> {
   try {
-    const res = await fetch(`${API_BASE}/pipeline`, {
+    const res = await apiFetch(`${API_BASE}/pipeline`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(item),
@@ -113,7 +114,7 @@ export async function addPipelineItem(item: Partial<PipelineItem>): Promise<Pipe
 
 export async function updatePipelineStage(id: string, stage: string, notes?: string, valueEstimate?: number) {
   try {
-    const res = await fetch(`${API_BASE}/pipeline/${id}`, {
+    const res = await apiFetch(`${API_BASE}/pipeline/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage, notes, valueEstimate }),
@@ -127,7 +128,7 @@ export async function updatePipelineStage(id: string, stage: string, notes?: str
 
 export async function removePipelineItem(id: string) {
   try {
-    const res = await fetch(`${API_BASE}/pipeline/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`${API_BASE}/pipeline/${id}`, { method: 'DELETE' });
     return res.ok;
   } catch (err) {
     console.error('Error removing pipeline item from DB:', err);
@@ -137,7 +138,7 @@ export async function removePipelineItem(id: string) {
 
 export async function fetchNotifications(): Promise<NotificationEvent[] | null> {
   try {
-    const res = await fetch(`${API_BASE}/notifications`);
+    const res = await apiFetch(`${API_BASE}/notifications`);
     if (!res.ok) throw new Error('Failed to fetch notifications');
     return await res.json();
   } catch (err) {
@@ -148,7 +149,7 @@ export async function fetchNotifications(): Promise<NotificationEvent[] | null> 
 
 export async function sendEmailNotification(recipientEmail: string, estate: DeceasedEstate, alertName?: string) {
   try {
-    const res = await fetch(`${API_BASE}/notifications/send-email`, {
+    const res = await apiFetch(`${API_BASE}/notifications/send-email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ recipientEmail, estate, alertName }),
@@ -162,7 +163,7 @@ export async function sendEmailNotification(recipientEmail: string, estate: Dece
 
 export async function simulateMatchApi(estate: DeceasedEstate) {
   try {
-    const res = await fetch(`${API_BASE}/simulate-match`, {
+    const res = await apiFetch(`${API_BASE}/simulate-match`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(estate),

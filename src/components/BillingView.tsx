@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CreditCard, Check, Sparkles, ShieldCheck, Zap, Download } from 'lucide-react';
 
-export const BillingView: React.FC = () => {
+export const BillingView: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [currentPlan, setCurrentPlan] = useState<'pro' | 'agency' | 'free'>('pro');
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -11,6 +11,14 @@ export const BillingView: React.FC = () => {
     setSelectedCheckoutPlan(planName);
     setShowCheckoutModal(true);
   };
+
+  if (isAdmin) return (
+    <div className="rounded-2xl border border-amber-500/40 bg-slate-900 p-8">
+      <div className="flex items-center gap-3 text-amber-300 text-xl font-bold"><ShieldCheck className="w-7 h-7" /> Administrator access</div>
+      <p className="text-slate-300 mt-3 max-w-2xl">All EstateWatch functionality is enabled for this verified administrator account. No subscription, checkout, usage credit, or payment is required.</p>
+      <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-emerald-950 px-4 py-2 text-sm font-bold text-emerald-400 border border-emerald-800"><Check className="w-4 h-4" /> Full platform access active</div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">

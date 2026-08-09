@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserAccount, UserRole } from '../types';
-import { neonAuthConfigured, signInWithNeon } from '../services/neonAuth';
+import { neonAuthConfigured, registerWithNeon, signInWithNeon } from '../services/neonAuth';
 import { 
   ShieldCheck, 
   Lock, 
@@ -48,6 +48,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [selectedPersona, setSelectedPersona] = useState<UserRole>('attorney');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -59,8 +61,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     e.preventDefault();
     setError(''); setSubmitting(true);
     try {
-      const user = await signInWithNeon(email, password);
-      onLogin({ id: user.id, email: user.email, name: user.name || user.email.split('@')[0], role: 'user', userPersona: selectedPersona });
+      const user = mode === 'register' ? await registerWithNeon(name, email, password) : await signInWithNeon(email, password);
+      onLogin({ id: user.id, email: user.email, name: user.name || user.email.split('@')[0], role: user.role, userPersona: selectedPersona });
       onClose();
     } catch (err: any) { setError(err.message || 'Sign-in failed'); }
     finally { setSubmitting(false); }
@@ -176,6 +178,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
             {/* Custom Credentials Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 rounded-xl bg-slate-950 p-1 border border-slate-800">
+                <button type="button" onClick={() => { setMode('login'); setError(''); }} className={`py-2 rounded-lg text-xs font-bold ${mode === 'login' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>Sign In</button>
+                <button type="button" onClick={() => { setMode('register'); setError(''); }} className={`py-2 rounded-lg text-xs font-bold ${mode === 'register' ? 'bg-amber-500 text-slate-950' : 'text-slate-400'}`}>Create Account</button>
+              </div>
+              {mode === 'register' && <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300">Full Name</label>
+                <input required type="text" minLength={2} placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
+              </div>}
               
               {/* Email Input */}
               <div className="space-y-1">
@@ -187,6 +197,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   type="email"
                   placeholder="you@example.com"
                   value={email}
+                  required
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500"
                 />
@@ -202,6 +213,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   type="password"
                   placeholder="••••••••••••"
                   value={password}
+                  required
+                  minLength={8}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500"
                 />
@@ -232,7 +245,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 className="w-full py-3 rounded-xl font-bold text-xs transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20 disabled:opacity-50"
               >
                 <Lock className="w-4 h-4" />
-                <span>{submitting ? 'Signing in…' : 'Sign In Securely'}</span>
+                <span>{submitting ? 'Please wait…' : mode === 'register' ? 'Create Secure Account' : 'Sign In Securely'}</span>
               </button>
               {!neonAuthConfigured && <p className="text-xs text-amber-400">Authentication is not configured for this deployment.</p>}
               {error && <p className="text-xs text-rose-400" role="alert">{error}</p>}
