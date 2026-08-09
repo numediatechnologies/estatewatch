@@ -5,6 +5,7 @@ export interface ContactMessage {
   phone?: string;
   enquiry: string;
   message: string;
+  followUpPriority?: 'low' | 'normal' | 'high' | 'urgent';
   website?: string;
 }
 

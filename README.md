@@ -68,6 +68,8 @@ DATABASE_URL                 Neon pooled PostgreSQL connection string
 FIRECRAWL_API_KEY            Firecrawl server API key
 RESEND_API_KEY               Resend server API key
 RESEND_FROM                  e.g. EstateWatch <alerts@tenders.marketdirect.co.za>
+LEADS_CONTACT_WEBHOOK_URL    MarketDirect leads CRM contact-ingest endpoint
+LEADS_CONTACT_WEBHOOK_KEY    shared secret for the CRM contact-ingest endpoint
 CLICKATELL_API_KEY           optional Clickatell key for secondary SMS alerts
 APP_URL                      canonical public application URL
 ADMIN_API_TOKEN              bearer token for administrative APIs
@@ -79,6 +81,8 @@ ESTATEWATCH_ALERT_EMAIL      optional controlled-test fallback recipient
 INGESTION_INCIDENT_EMAIL     optional operations recipient; defaults to ADMIN_EMAIL
 NEON_AUTH_BASE_URL           Neon Auth server URL
 ```
+
+Contact requests are written to the MarketDirect leads CRM before the sales email is sent. The CRM creates an open follow-up task; its existing daily reminder process sends email and, when Twilio is configured, SMS reminders. If either CRM or email delivery fails, EstateWatch reports a retryable error rather than claiming success.
 
 Build-time browser configuration:
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CheckCircle2, Eye, Mail, MapPin, Phone, Send, ShieldCheck } from 'lucide-react';
 import { sendContactMessage } from '../services/contactApi';
 
-const INITIAL_FORM = { name: '', company: '', email: '', phone: '', enquiry: '', message: '', website: '' };
+const INITIAL_FORM = { name: '', company: '', email: '', phone: '', enquiry: '', message: '', followUpPriority: 'normal', website: '' };
 
 export const EstateWatchFooter: React.FC = () => {
   const [form, setForm] = useState(INITIAL_FORM);
@@ -14,7 +14,7 @@ export const EstateWatchFooter: React.FC = () => {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setStatus(''); setError(''); setSending(true);
-    const result = await sendContactMessage(form);
+    const result = await sendContactMessage({ ...form, followUpPriority: form.followUpPriority as 'low' | 'normal' | 'high' | 'urgent' });
     setSending(false);
     if (!result.success) return setError(result.error || 'Your message could not be sent.');
     setStatus(result.message || 'Thanks — your message has been sent.');
@@ -32,7 +32,7 @@ export const EstateWatchFooter: React.FC = () => {
             <label className="text-xs font-semibold text-slate-300">Email *<input type="email" value={form.email} onChange={e => update('email', e.target.value)} required className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white" /></label>
             <label className="text-xs font-semibold text-slate-300">Phone / WhatsApp<input type="tel" value={form.phone} onChange={e => update('phone', e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white" /></label>
           </div>
-          <label className="text-xs font-semibold text-slate-300 block">What can we help with? *<select value={form.enquiry} onChange={e => update('enquiry', e.target.value)} required className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white"><option value="">Select an enquiry type</option><option>EstateWatch alerts</option><option>Registration or account access</option><option>Admin support</option><option>Estate notice support</option><option>Partnership or sales enquiry</option><option>Other</option></select></label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><label className="text-xs font-semibold text-slate-300 block">What can we help with? *<select value={form.enquiry} onChange={e => update('enquiry', e.target.value)} required className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white"><option value="">Select an enquiry type</option><option>EstateWatch alerts</option><option>Registration or account access</option><option>Admin support</option><option>Estate notice support</option><option>Partnership or sales enquiry</option><option>Other</option></select></label><label className="text-xs font-semibold text-slate-300 block">Follow-up priority<select value={form.followUpPriority} onChange={e => update('followUpPriority', e.target.value)} className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label></div>
           <label className="text-xs font-semibold text-slate-300 block">Message *<textarea value={form.message} onChange={e => update('message', e.target.value)} required minLength={10} rows={4} placeholder="Tell us what you need help with." className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white resize-y" /></label>
           <input value={form.website} onChange={e => update('website', e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" />
           <button disabled={sending} className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2"><Send className="w-4 h-4" />{sending ? 'Sending…' : 'Send request'}</button>

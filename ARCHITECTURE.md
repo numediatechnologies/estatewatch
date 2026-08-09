@@ -14,6 +14,8 @@ Deliver a minimum viable product that proves the value of:
 ## Mission-critical operating principle
 All workflows are handled as mission-critical. Alerts, ingestion, notifications, follow-up reminders, dashboards and administrator operations must fail visibly, preserve the last known-good state, avoid unsupported claims, and confirm important writes before showing success. Prefer reversible actions such as pause over permanent deletion where possible. This is a reliability and integrity standard, not a guarantee of legal, financial or notification outcomes.
 
+Contact requests follow the same server-authoritative rule: the MarketDirect leads CRM is updated first with an idempotent submission ID, then the sales email is sent. The CRM creates the open follow-up task used by its existing email/SMS reminder scheduler. A failed CRM or email write is returned as a retryable error and is never presented as a completed contact request.
+
 ## Product model
 ### Core entities
 - `User` / `UserProfile`

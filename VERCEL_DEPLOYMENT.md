@@ -7,6 +7,8 @@ variables in the Vercel project before deployment:
 - `FIRECRAWL_API_KEY`
 - `ADMIN_API_TOKEN`
 - `APP_URL`
+- `LEADS_CONTACT_WEBHOOK_URL`
+- `LEADS_CONTACT_WEBHOOK_KEY`
 - SMTP variables from `.env.example` when real email delivery is enabled
 
 Do not set `SEED_DEMO_DATA` in production. Apply the database schema explicitly with

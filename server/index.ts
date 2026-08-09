@@ -14,6 +14,7 @@ import { authenticateWithNeon, clearSessionCookie, createSessionToken, readSessi
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { normalizeSmsRecipient, sendVerificationSms } from './smsService.js';
 import { sendContactMessage, sendIngestionFailureEmail, sendTestEmail } from './emailService.js';
+import { buildMarketDirectContactPayload, sendContactToMarketDirectCrm } from './leadCrmService.js';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -71,9 +72,13 @@ application.post('/api/contact', async (req, res) => {
     if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
     if (!enquiry) return res.status(400).json({ error: 'Please select an enquiry type.' });
     if (message.length < 10) return res.status(400).json({ error: 'Please add at least 10 characters to your message.' });
+    const submissionId = randomUUID();
+    const crmPayload = buildMarketDirectContactPayload({ name, company, email, phone, enquiry, message, submissionId, followUpPriority: req.body?.followUpPriority });
+    const crmResult = await sendContactToMarketDirectCrm(crmPayload);
+    if (!crmResult.success) return res.status(502).json({ error: `Your request was not sent because the sales follow-up queue could not be updated. ${crmResult.error} Please try again.` });
     const result = await sendContactMessage({ name, company, email, phone, enquiry, message });
     if (!result.success) return res.status(502).json({ error: result.error || 'Contact email could not be sent.' });
-    res.json({ success: true, message: 'Thanks — your message has been sent to the EstateWatch team.' });
+    res.json({ success: true, message: 'Thanks — your message has been sent to the EstateWatch team and added to the follow-up queue.' });
   } catch (error: any) { res.status(500).json({ error: error.message || 'Contact email could not be sent.' }); }
 });
 const verificationHash = (id: string, code: string) => {
