@@ -5,6 +5,11 @@ export const PARSER_VERSION = 'j193-v1';
 const RECORD_START = /(?:^|\n)(\d{3,6}\/\d{4})\s*[—-]\s*\(2\)/g;
 
 export async function extractPdfText(buffer: Uint8Array): Promise<string> {
+  const canvas = await import('@napi-rs/canvas');
+  const runtime = globalThis as Record<string, any>;
+  runtime.DOMMatrix ||= canvas.DOMMatrix;
+  runtime.Path2D ||= canvas.Path2D;
+  runtime.ImageData ||= canvas.ImageData;
   const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const pdf = await getDocument({ data: buffer, useWorkerFetch: false }).promise;
   const pages: string[] = [];
