@@ -51,6 +51,8 @@ export function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('reset-password')) setShowLoginModal(true);
     void restoreNeonSession().then((user) => {
       if (user) setCurrentUser({ id: user.id, email: user.email, name: user.name, role: user.role, userPersona: 'attorney' });
     });

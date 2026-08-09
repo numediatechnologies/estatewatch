@@ -10,7 +10,7 @@ import { createFirecrawlClient, discoverGazettes } from './firecrawlDiscovery.js
 import { runIngestion } from './ingestService.js';
 import { query } from './db.js';
 import { initializeDatabase } from './initDb.js';
-import { authenticateWithNeon, clearSessionCookie, createSessionToken, readSession, setSessionCookie } from './auth.js';
+import { authenticateWithNeon, clearSessionCookie, createSessionToken, readSession, requestPasswordResetWithNeon, resetPasswordWithNeon, setSessionCookie } from './auth.js';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -63,6 +63,28 @@ application.post('/api/auth/login', async (req, res) => {
     setSessionCookie(res, createSessionToken(session));
     res.json({ user: { id: session.sub, email: session.email, name: session.name, role: session.role } });
   } catch (error: any) { res.status(error.status || 401).json({ error: error.message }); }
+});
+application.post('/api/auth/forgot-password', async (req, res) => {
+  const email = req.body?.email;
+  if (typeof email !== 'string' || !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'A valid email address is required' });
+  try {
+    await requestPasswordResetWithNeon(email.toLowerCase());
+  } catch (error: any) {
+    // Preserve a generic response for valid addresses so this endpoint cannot be
+    // used to discover which people have EstateWatch accounts.
+    if (error.status !== 400 && error.status !== 404) return res.status(error.status || 502).json({ error: 'Password reset service is temporarily unavailable' });
+  }
+  res.json({ success: true, message: 'If an account exists for that email, a password reset link has been sent.' });
+});
+application.post('/api/auth/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body || {};
+  if (typeof token !== 'string' || token.length < 10) return res.status(400).json({ error: 'A valid password reset token is required' });
+  if (typeof newPassword !== 'string' || newPassword.length < 8) return res.status(400).json({ error: 'The new password must be at least 8 characters' });
+  try {
+    await resetPasswordWithNeon(token, newPassword);
+    clearSessionCookie(res);
+    res.json({ success: true, message: 'Password updated. You can now sign in.' });
+  } catch (error: any) { res.status(error.status || 400).json({ error: error.message || 'The reset link is invalid or expired' }); }
 });
 application.get('/api/auth/session', (req, res) => {
   const session = readSession(req);

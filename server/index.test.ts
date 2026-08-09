@@ -12,6 +12,13 @@ const discovery: DiscoveryResult = {
 };
 
 describe('Firecrawl API', () => {
+  it('validates password recovery inputs without disclosing accounts', async () => {
+    const app = createApp({ discover: vi.fn(), createClient: () => ({}) as FirecrawlDiscoveryClient, ingest: vi.fn() });
+    expect((await request(app).post('/api/auth/forgot-password').send({ email: 'invalid' })).status).toBe(400);
+    expect((await request(app).post('/api/auth/reset-password').send({ token: 'short', newPassword: 'long-enough' })).status).toBe(400);
+    expect((await request(app).post('/api/auth/reset-password').send({ token: 'long-enough-token', newPassword: 'short' })).status).toBe(400);
+  });
+
   it('protects Firecrawl endpoints when an admin token is configured', async () => {
     const previous = process.env.ADMIN_API_TOKEN;
     process.env.ADMIN_API_TOKEN = 'test-secret';

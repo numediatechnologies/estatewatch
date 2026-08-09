@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Request } from 'express';
 const { queryMock } = vi.hoisted(() => ({ queryMock: vi.fn() }));
 vi.mock('./db.js', () => ({ query: queryMock }));
-import { authenticateWithNeon, createSessionToken, readSession, roleForEmail } from './auth.js';
+import { authenticateWithNeon, createSessionToken, readSession, requestPasswordResetWithNeon, resetPasswordWithNeon, roleForEmail } from './auth.js';
 
 describe('application authentication', () => {
   afterEach(() => { vi.unstubAllGlobals(); queryMock.mockReset(); });
@@ -31,5 +31,19 @@ describe('application authentication', () => {
     expect(result.role).toBe('admin');
     expect(transportMock).toHaveBeenCalledWith('https://auth.example.test/sign-up/email', expect.any(Object), 'https://estatewatch.marketdirect.co.za');
     expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('user_profiles'), expect.arrayContaining(['admin']));
+  });
+
+  it('requests a reset using the canonical callback and completes it with the supplied token', async () => {
+    process.env.NEON_AUTH_BASE_URL = 'https://auth.example.test';
+    process.env.APP_URL = 'https://estatewatch.marketdirect.co.za/';
+    const transportMock = vi.fn().mockResolvedValue({ status: 200, data: { status: true } });
+    await requestPasswordResetWithNeon('owner@example.com', transportMock);
+    expect(transportMock).toHaveBeenNthCalledWith(1, 'https://auth.example.test/request-password-reset', {
+      email: 'owner@example.com', redirectTo: 'https://estatewatch.marketdirect.co.za/?reset-password=1',
+    }, 'https://estatewatch.marketdirect.co.za');
+    await resetPasswordWithNeon('valid-reset-token', 'new-secure-password', transportMock);
+    expect(transportMock).toHaveBeenNthCalledWith(2, 'https://auth.example.test/reset-password', {
+      token: 'valid-reset-token', newPassword: 'new-secure-password',
+    }, 'https://estatewatch.marketdirect.co.za');
   });
 });

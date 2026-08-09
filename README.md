@@ -33,7 +33,7 @@ npm run build
 npm run dev
 ```
 
-Production database initialization is additive and never seeds demo rows. Frontend demo data/login require explicit development-only flags. Registration and sign-in are verified by hosted Neon Auth through the EstateWatch API. The API issues a signed HttpOnly session, restores it on reload, and resolves roles server-side. Users cannot select their own role. The configured `ADMIN_EMAIL` receives administrator access and bypasses subscription/payment gates.
+Production database initialization is additive and never seeds demo rows. Frontend demo data/login require explicit development-only flags. Registration, sign-in, and password recovery are verified by hosted Neon Auth through the EstateWatch API. Reset requests always return a generic account-safe response; emailed links open the EstateWatch reset form and expired or invalid tokens are rejected. The API issues a signed HttpOnly session, restores it on reload, and resolves roles server-side. Users cannot select their own role. The configured `ADMIN_EMAIL` receives administrator access and bypasses subscription/payment gates.
 
 ## Environment variables
 
@@ -105,6 +105,6 @@ The current sender domain must have verified SPF and DKIM. Click tracking remain
 
 ## Release gates
 
-Deploy Preview first and verify tests, TypeScript, build, migrations, `/api/health`, unauthorized `401` responses, Neon Auth sign-in/session/logout, Firecrawl discovery, Gazette 55077 parsing, alert matching, one authorized Resend delivery, and duplicate suppression. Promote that tested revision to Production only after all checks pass, then verify the custom domain and cron configuration.
+Deploy Preview first and verify tests, TypeScript, build, migrations, `/api/health`, unauthorized `401` responses, Neon Auth registration/sign-in/session/logout/password-reset flows, Firecrawl discovery, Gazette 55077 parsing, alert matching, one authorized Resend delivery, and duplicate suppression. Promote that tested revision to Production only after all checks pass, then verify the custom domain and cron configuration.
 
 POPIA/legal review remains a commercial-launch requirement even after technical deployment.

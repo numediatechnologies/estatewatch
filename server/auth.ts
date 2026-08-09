@@ -41,6 +41,17 @@ const postAuthJson: AuthTransport = (url, body, origin) => new Promise((resolve,
   request.end(payload);
 });
 
+async function callNeonAuth(path: string, body: object, transport: AuthTransport = postAuthJson) {
+  const baseUrl = process.env.NEON_AUTH_BASE_URL?.replace(/\/$/, '');
+  if (!baseUrl) throw new Error('NEON_AUTH_BASE_URL is required');
+  const origin = new URL(process.env.APP_URL || 'http://localhost:3000').origin;
+  const response = await transport(`${baseUrl}/${path}`, body, origin);
+  if (response.status < 200 || response.status >= 300) {
+    throw Object.assign(new Error(response.data.message || response.data.error || 'Authentication failed'), { status: response.status });
+  }
+  return response.data;
+}
+
 function secret() {
   const value = process.env.AUTH_SESSION_SECRET || process.env.ADMIN_API_TOKEN;
   if (!value) throw new Error('AUTH_SESSION_SECRET is required');
@@ -84,14 +95,7 @@ export function clearSessionCookie(res: Response) {
 }
 
 export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string }, transport: AuthTransport = postAuthJson) {
-  const baseUrl = process.env.NEON_AUTH_BASE_URL?.replace(/\/$/, '');
-  if (!baseUrl) throw new Error('NEON_AUTH_BASE_URL is required');
-  // Neon validates browser-style auth requests against its trusted-origin list.
-  // URL.origin removes paths and trailing slashes, which are invalid in Origin.
-  const origin = new URL(process.env.APP_URL || 'http://localhost:3000').origin;
-  const response = await transport(`${baseUrl}/${mode}/email`, body, origin);
-  const result = response.data;
-  if (response.status < 200 || response.status >= 300) throw Object.assign(new Error(result.message || result.error || 'Authentication failed'), { status: response.status });
+  const result = await callNeonAuth(`${mode}/email`, body, transport);
   const user = result.user;
   if (!user?.id || !user?.email) throw new Error(mode === 'sign-up' ? 'Check your email to verify the new account before signing in.' : 'Neon did not return a verified user.');
   const email = String(user.email).toLowerCase();
@@ -100,4 +104,13 @@ export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { 
   await query(`INSERT INTO user_profiles(auth_subject,email,display_name,role) VALUES($1,$2,$3,$4)
     ON CONFLICT(auth_subject) DO UPDATE SET email=EXCLUDED.email,display_name=EXCLUDED.display_name,role=EXCLUDED.role`, [user.id, email, name, role]);
   return { sub: user.id as string, email, name, role };
+}
+
+export async function requestPasswordResetWithNeon(email: string, transport: AuthTransport = postAuthJson) {
+  const redirectTo = `${new URL(process.env.APP_URL || 'http://localhost:3000').origin}/?reset-password=1`;
+  await callNeonAuth('request-password-reset', { email, redirectTo }, transport);
+}
+
+export async function resetPasswordWithNeon(token: string, newPassword: string, transport: AuthTransport = postAuthJson) {
+  await callNeonAuth('reset-password', { token, newPassword }, transport);
 }

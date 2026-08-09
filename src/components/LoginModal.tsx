@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserAccount, UserRole } from '../types';
-import { neonAuthConfigured, registerWithNeon, signInWithNeon } from '../services/neonAuth';
+import { neonAuthConfigured, registerWithNeon, requestPasswordReset, resetPassword, signInWithNeon } from '../services/neonAuth';
 import { 
   ShieldCheck, 
   Lock, 
@@ -49,18 +49,44 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [success, setSuccess] = useState('');
   const [selectedPersona, setSelectedPersona] = useState<UserRole>('attorney');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const demoEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true';
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('token') && params.has('reset-password')) setMode('reset');
+    else if (params.get('error') && params.has('reset-password')) {
+      setMode('forgot');
+      setError('That reset link is invalid or expired. Request a new one.');
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); setSubmitting(true);
+    setError(''); setSuccess(''); setSubmitting(true);
     try {
+      if (mode === 'forgot') {
+        const result = await requestPasswordReset(email);
+        setSuccess(result.message);
+        return;
+      }
+      if (mode === 'reset') {
+        if (password !== confirmPassword) throw new Error('Passwords do not match');
+        const token = new URLSearchParams(window.location.search).get('token');
+        if (!token) throw new Error('The reset link is invalid or expired');
+        const result = await resetPassword(token, password);
+        window.history.replaceState({}, '', window.location.pathname);
+        setPassword(''); setConfirmPassword(''); setMode('login'); setSuccess(result.message);
+        return;
+      }
       const user = mode === 'register' ? await registerWithNeon(name, email, password) : await signInWithNeon(email, password);
       onLogin({ id: user.id, email: user.email, name: user.name || user.email.split('@')[0], role: user.role, userPersona: selectedPersona });
       onClose();
@@ -178,17 +204,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
             {/* Custom Credentials Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 rounded-xl bg-slate-950 p-1 border border-slate-800">
+              {(mode === 'login' || mode === 'register') && <div className="grid grid-cols-2 rounded-xl bg-slate-950 p-1 border border-slate-800">
                 <button type="button" onClick={() => { setMode('login'); setError(''); }} className={`py-2 rounded-lg text-xs font-bold ${mode === 'login' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>Sign In</button>
                 <button type="button" onClick={() => { setMode('register'); setError(''); }} className={`py-2 rounded-lg text-xs font-bold ${mode === 'register' ? 'bg-amber-500 text-slate-950' : 'text-slate-400'}`}>Create Account</button>
-              </div>
+              </div>}
+              {mode === 'forgot' && <div><h3 className="font-bold text-white">Reset your password</h3><p className="text-xs text-slate-400 mt-1">Enter your account email and we’ll send a secure reset link.</p></div>}
+              {mode === 'reset' && <div><h3 className="font-bold text-white">Choose a new password</h3><p className="text-xs text-slate-400 mt-1">Use at least 8 characters and do not reuse an old password.</p></div>}
               {mode === 'register' && <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-300">Full Name</label>
                 <input required type="text" minLength={2} placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
               </div>}
               
               {/* Email Input */}
-              <div className="space-y-1">
+              {mode !== 'reset' && <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
                   <Mail className="w-3.5 h-3.5 text-slate-400" />
                   Email Address
@@ -201,10 +229,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500"
                 />
-              </div>
+              </div>}
 
               {/* Password Input */}
-              <div className="space-y-1">
+              {mode !== 'forgot' && <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
                   <KeyRound className="w-3.5 h-3.5 text-slate-400" />
                   Password
@@ -218,10 +246,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500"
                 />
-              </div>
+              </div>}
+
+              {mode === 'reset' && <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300">Confirm New Password</label>
+                <input type="password" placeholder="••••••••••••" value={confirmPassword} required minLength={8} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
+              </div>}
 
               {/* Persona selection */}
-              {(
+              {(mode === 'login' || mode === 'register') && (
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-300">Default Persona View</label>
                   <select
@@ -245,10 +278,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 className="w-full py-3 rounded-xl font-bold text-xs transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20 disabled:opacity-50"
               >
                 <Lock className="w-4 h-4" />
-                <span>{submitting ? 'Please wait…' : mode === 'register' ? 'Create Secure Account' : 'Sign In Securely'}</span>
+                <span>{submitting ? 'Please wait…' : mode === 'register' ? 'Create Secure Account' : mode === 'forgot' ? 'Send Reset Link' : mode === 'reset' ? 'Update Password' : 'Sign In Securely'}</span>
               </button>
+              {mode === 'login' && <button type="button" onClick={() => { setMode('forgot'); setError(''); setSuccess(''); }} className="w-full text-xs font-semibold text-blue-400 hover:text-blue-300">Forgot your password?</button>}
+              {(mode === 'forgot' || mode === 'reset') && <button type="button" onClick={() => { setMode('login'); setError(''); setSuccess(''); }} className="w-full text-xs font-semibold text-slate-400 hover:text-white">Back to sign in</button>}
               {!neonAuthConfigured && <p className="text-xs text-amber-400">Authentication is not configured for this deployment.</p>}
               {error && <p className="text-xs text-rose-400" role="alert">{error}</p>}
+              {success && <p className="text-xs text-emerald-400" role="status">{success}</p>}
 
             </form>
           </>
