@@ -35,32 +35,32 @@ interface DashboardViewProps {
 
 const ROLE_RECOMMENDATIONS: Record<UserRole, { title: string; strategy: string; focus: string }> = {
   attorney: {
-    title: 'Fiduciary & Probate Lead Strategy',
+    title: 'Find relevant estate opportunities',
     strategy: 'Monitor surnames and Master’s Office areas relevant to your practice, then verify the published representative and claim period.',
     focus: 'Evidence available: J193 deceased details, representative, address, office and claim period.'
   },
   investor: {
-    title: 'Off-Market Probate Property Acquisition',
+    title: 'Research estate opportunities responsibly',
     strategy: 'Monitor relevant surnames and provinces, then conduct separate lawful property research after reviewing the Gazette record.',
     focus: 'J193 does not reliably identify property or estate value.'
   },
   tracer: {
-    title: 'Heir & Unclaimed Inheritance Tracing',
+    title: 'Trace possible heirs and inheritances',
     strategy: 'Set surname alerts across selected provinces and review spouse, address and representative fields from the source notice.',
     focus: 'Top Target: Estate notices with missing executor details or out-of-province death notices.'
   },
   funeral: {
-    title: 'Memorial & Funeral Services Coordination',
+    title: 'Monitor notices in your service area',
     strategy: 'Monitor local Master’s Office areas and use published dates without assuming immediate publication after death.',
     focus: 'Top Target: Recent Section 29 notices in your local district.'
   },
   debt_collector: {
-    title: 'Creditor Claim Window Tracking',
+    title: 'Track creditor claim periods',
     strategy: '30-day statutory window starts on Gazette publication date. Ensure all outstanding debts are formally lodged with executor before distribution.',
     focus: 'Top Target: Section 29 notices published in the last 7 days.'
   },
   financial_advisor: {
-    title: 'Policy & Pension Payout Tracing',
+    title: 'Trace possible policy and pension matters',
     strategy: 'Use surname and province alerts, then verify policy or pension relationships through appropriate private records.',
     focus: 'J193 does not publish reliable estate value or financial-product holdings.'
   }
@@ -91,7 +91,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
-                Persona Workflow Active
+                Built for your work
               </span>
               <span className="text-xs text-slate-400">• Verified J193 fields</span>
             </div>
@@ -144,7 +144,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="text-2xl font-bold text-white tracking-tight">{estates.length}</div>
           <div className="text-[11px] text-slate-400 pt-1">
-            <span>Persisted Gazette records</span>
+            <span>Available Gazette notices</span>
           </div>
         </div>
 
@@ -163,12 +163,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
           <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Parser Mode</span>
+            <span>Notice checks</span>
             <Sparkles className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-lg font-bold text-emerald-400 tracking-tight">Deterministic</div>
+          <div className="text-lg font-bold text-emerald-400 tracking-tight">Verified fields</div>
           <div className="text-[11px] text-slate-400 pt-1">
-            <span>Uncertain records rejected</span>
+            <span>Unclear records held for review</span>
           </div>
         </div>
 
@@ -188,7 +188,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               onClick={() => onNavigateToTab('estates')}
               className="text-xs text-amber-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
             >
-              View Full Directory ({estates.length})
+              View all notices ({estates.length})
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

@@ -39,10 +39,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isAdmin,
 }) => {
   const navItems: { id: TabType; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: 'dashboard', label: 'Dashboard Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
-    { id: 'estates', label: 'Gazette Estate Feed', icon: <FileText className="w-4 h-4" />, badge: matchesCount },
-    { id: 'alerts', label: 'Alert Builder Wizard', icon: <BellRing className="w-4 h-4" /> },
-    { id: 'pipeline', label: 'Lead Pipeline CRM', icon: <Briefcase className="w-4 h-4" />, badge: pipelineCount },
+    { id: 'dashboard', label: 'Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+    { id: 'estates', label: 'Estate notices', icon: <FileText className="w-4 h-4" />, badge: matchesCount },
+    { id: 'alerts', label: 'Set an alert', icon: <BellRing className="w-4 h-4" /> },
+    { id: 'pipeline', label: 'Saved opportunities', icon: <Briefcase className="w-4 h-4" />, badge: pipelineCount },
     ...(isAdmin ? [{ id: 'ingestion' as TabType, label: 'Admin Ingestion', icon: <Cpu className="w-4 h-4" /> }] : []),
     { id: 'popia', label: 'POPIA & Legal Basis', icon: <ShieldCheck className="w-4 h-4" /> },
     { id: 'billing', label: 'Subscription & Plans', icon: <CreditCard className="w-4 h-4" /> },
@@ -55,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Navigation Group */}
         <div>
           <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-2 px-3">
-            Core Workflows
+            Your tools
           </p>
           <nav className="space-y-1">
             {navItems.map((item) => {
@@ -100,11 +100,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>Why EstateWatch?</span>
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            EstateWatch sends <strong className="text-slate-200">email alerts</strong> after a verified J193 record matches your surname or province criteria.
+            We help you spot relevant deceased-estate notices and take a clear next step.
           </p>
           <div className="pt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500">
-            <span>Production channel:</span>
-            <span className="text-emerald-400 font-semibold">Email</span>
+            <span>Alerts sent by:</span>
+            <span className="text-emerald-400 font-semibold">Email, with optional SMS</span>
           </div>
         </div>
 
@@ -114,14 +114,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-3 lg:p-4 border-t border-slate-800/80 bg-slate-950/40 text-xs text-slate-500 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-          <span className="text-[11px] text-slate-400">SA Gazette v2.4 Live</span>
+          <span className="text-[11px] text-slate-400">South African Gazette monitoring</span>
         </div>
         <a
           href="#popia"
           onClick={(e) => { e.preventDefault(); onTabChange('popia'); }}
           className="text-[11px] text-amber-400/80 hover:text-amber-400 hover:underline"
         >
-          POPIA Info
+          Privacy information
         </a>
       </div>
     </aside>

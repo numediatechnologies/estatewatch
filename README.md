@@ -1,5 +1,21 @@
 # EstateWatch
 
+EstateWatch is a MarketDirect.co.za service that helps South African professionals find relevant deceased-estate notices and take a clear next step.
+
+## Brand voice and South African English
+
+All customer-facing EstateWatch copy follows the MarketDirect.co.za brand voice. Write like a practical South African business partner: clear, grounded, encouraging and action-oriented. Keep sentences short, remove unnecessary technical language and explain what the user can do next.
+
+- Always write the parent brand as `MarketDirect.co.za`.
+- Use South African English, including `adviser`, `personalised`, `authorised`, `organisation`, `licence` as a noun and `licensing` where relevant.
+- Prefer plain terms such as “estate notice”, “set an alert”, “saved opportunity” and “take the next step”.
+- Use short, direct calls to action such as “Start Alert”, “View Notice”, “Save Opportunity” and “Contact Support”.
+- Do not name databases, hosting providers, scraping providers, email providers or internal processing tools in public or ordinary-user screens.
+- Technical service names and operational diagnostics are for authenticated administrators only.
+- Do not make unsupported speed, coverage, accuracy, value, property or legal-outcome claims.
+
+The voice is simple, practical and reliable. It should feel built for South Africans, without slang, hype or corporate stiffness.
+
 EstateWatch discovers South African Government Gazette J193 issues, extracts genuine deceased-estate records, matches saved alerts, and sends email notifications. The production pipeline is intentionally conservative: fields absent from J193 notices stay `Unknown`, uncertain records are rejected for review, and reruns do not create duplicate estates or emails.
 
 ## Production workflow

@@ -119,10 +119,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </div>
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              EstateWatch Portal Access
+              Sign in to EstateWatch
             </h2>
             <p className="text-xs text-slate-400">
-              Sign in to manage alerts, CRM leads, or launch the Admin Scraper
+              Manage your alerts and saved estate opportunities in one place
             </p>
           </div>
         </div>
@@ -150,7 +150,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </div>
 
             <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
-              <span>Persona View: <strong className="text-slate-200 uppercase">{currentUser.userPersona}</strong></span>
+              <span>Business view: <strong className="text-slate-200 uppercase">{currentUser.userPersona}</strong></span>
               <button 
                 onClick={onLogout}
                 className="text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
@@ -256,7 +256,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               {/* Persona selection */}
               {(mode === 'login' || mode === 'register') && (
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-300">Default Persona View</label>
+                  <label className="text-xs font-semibold text-slate-300">Your business view</label>
                   <select
                     value={selectedPersona}
                     onChange={(e) => setSelectedPersona(e.target.value as UserRole)}
@@ -266,7 +266,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     <option value="investor">Property Investor</option>
                     <option value="tracer">Heir & Asset Tracer</option>
                     <option value="debt_collector">Debt Collector</option>
-                    <option value="financial_advisor">Financial Advisor</option>
+                    <option value="financial_advisor">Financial Adviser</option>
                   </select>
                 </div>
               )}

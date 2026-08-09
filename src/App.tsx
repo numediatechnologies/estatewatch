@@ -251,30 +251,30 @@ export function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
 
-      {/* DB Connection Status Banner */}
-      <div className="bg-slate-900 border-b border-slate-800 px-4 py-1.5 flex items-center justify-between text-xs">
+      {/* Operational details are visible to administrators only. */}
+      {currentUser?.role === 'admin' && <div className="bg-slate-900 border-b border-slate-800 px-4 py-1.5 flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
           <Database className="w-3.5 h-3.5 text-amber-400" />
-          <span className="font-semibold text-slate-300">Neon Database Connection:</span>
+          <span className="font-semibold text-slate-300">Data service:</span>
           {dbConnected === true && (
             <span className="inline-flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Connected (ep-super-art-awvpe4nf-pooler)
+              Connected
             </span>
           )}
           {dbConnected === false && (
             <span className="inline-flex items-center gap-1.5 text-amber-400 font-bold bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/30">
-              Demo data — API unavailable
+              Service unavailable
             </span>
           )}
           {dbConnected === null && (
-            <span className="text-slate-400 animate-pulse">Connecting to Neon PostgreSQL...</span>
+            <span className="text-slate-400 animate-pulse">Checking service...</span>
           )}
         </div>
         <div className="hidden sm:flex items-center gap-3 text-[11px] text-slate-400">
-          <span>Notifications Engine: <strong className="text-amber-400">Resend Email Enabled</strong></span>
+          <span>Email alerts: <strong className="text-amber-400">Enabled</strong></span>
         </div>
-      </div>
+      </div>}
 
       {/* Top Header */}
       <Header

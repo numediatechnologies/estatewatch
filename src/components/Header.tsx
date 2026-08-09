@@ -27,7 +27,7 @@ const ROLE_LABELS: Record<UserRole, { label: string; desc: string }> = {
   tracer: { label: 'Heir & Asset Tracer', desc: 'Unclaimed Inheritance & Surname Matching' },
   funeral: { label: 'Funeral Home Services', desc: 'Timely Support & Memorial Cross-Sell' },
   debt_collector: { label: 'Debt Collector / Creditor', desc: 'Section 29 Claim Window Monitoring' },
-  financial_advisor: { label: 'Financial Advisor / Insurer', desc: 'Policy & Pension Payout Tracing' }
+  financial_advisor: { label: 'Financial Adviser / Insurer', desc: 'Policy and pension payout tracing' }
 };
 
 export const Header: React.FC<HeaderProps> = ({
@@ -58,11 +58,12 @@ export const Header: React.FC<HeaderProps> = ({
                 ESTATE<span className="text-amber-400 font-serif font-bold">WATCH</span> <span className="text-amber-400">👁️</span>
               </h1>
               <span className="text-[10px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                SA Gazette Monitor
+                South African Gazette alerts
               </span>
             </div>
+            <p className="text-[10px] font-semibold text-amber-300/80">by MarketDirect.co.za</p>
             <p className="text-xs text-slate-400 hidden sm:block">
-              Deceased Estates Ingestion & Real-Time Alert Engine
+              Clear estate notices. Practical alerts. A simple next step.
             </p>
           </div>
         </div>
@@ -73,9 +74,9 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span className="font-semibold text-slate-200">J193 Gazette monitoring</span>
+          <span className="font-semibold text-slate-200">South African Gazette monitoring</span>
           <span className="text-slate-500">·</span>
-          <span className="text-emerald-400">Deterministic parsing</span>
+          <span className="text-emerald-400">Verified notice details</span>
         </div>
 
         {/* Right Actions & Persona Selector */}
@@ -99,7 +100,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <UserCheck className="w-3.5 h-3.5 text-amber-400" />
               <div className="text-left hidden sm:block">
-                <span className="text-[10px] text-slate-400 block leading-none">Persona View</span>
+                <span className="text-[10px] text-slate-400 block leading-none">Your view</span>
                 <span className="font-semibold leading-tight block">{ROLE_LABELS[currentRole].label}</span>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -108,8 +109,8 @@ export const Header: React.FC<HeaderProps> = ({
             {roleDropdownOpen && (
               <div className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 z-50">
                 <div className="px-3 py-1.5 border-b border-slate-800 mb-1">
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Switch Persona View</p>
-                  <p className="text-xs text-slate-500">Tailors alert suggestions & workflow recommendations</p>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Choose your business view</p>
+                  <p className="text-xs text-slate-500">See practical guidance suited to your work</p>
                 </div>
                 {(Object.keys(ROLE_LABELS) as UserRole[]).map((role) => (
                   <button
@@ -160,7 +161,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* POPIA Status Pill */}
           <div className="hidden lg:flex items-center gap-1 px-2.5 py-1 bg-emerald-950/60 border border-emerald-800/50 rounded-lg text-[11px] text-emerald-400 font-medium">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>POPIA Compliant</span>
+            <span>Privacy protected</span>
           </div>
 
         </div>

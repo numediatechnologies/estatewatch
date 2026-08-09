@@ -152,7 +152,7 @@ export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
           <div className="bg-slate-800/60 border border-slate-700/80 p-4 rounded-xl space-y-3">
             <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
               <Briefcase className="w-4 h-4 text-amber-400" />
-              {isInPipeline ? 'Lead in Pipeline' : 'Save as Lead in Pipeline CRM'}
+              {isInPipeline ? 'Opportunity saved' : 'Save this opportunity'}
             </h4>
 
             {!isInPipeline ? (
@@ -197,7 +197,7 @@ export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
                   className="w-full py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <Briefcase className="w-4 h-4" />
-                  Add Lead to Pipeline CRM
+                  Save Opportunity
                 </button>
               </div>
             ) : (
