@@ -13,6 +13,7 @@ import { initializeDatabase } from './initDb.js';
 import { authenticateWithNeon, clearSessionCookie, createSessionToken, readSession, requestPasswordResetWithNeon, resetPasswordWithNeon, setSessionCookie } from './auth.js';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { normalizeSmsRecipient, sendVerificationSms } from './smsService.js';
+import { sendIngestionFailureEmail } from './emailService.js';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -181,8 +182,14 @@ application.post('/api/admin/migrate', requireAdmin, async (_req, res) => {
 application.get('/api/cron/ingest', requireCron, async (_req, res) => {
   try {
     const result = await dependencies.ingest();
-    res.status(result.status === 'completed' ? 200 : 502).json({ success: result.status === 'completed', data: result });
+    if (result.status !== 'completed') {
+      const detail = result.errors.map((entry) => `${entry.url}: ${entry.error}`).join('; ') || 'Ingestion was flagged without an error detail';
+      const incident = await sendIngestionFailureEmail(detail).catch((error) => ({ success: false, error: error.message }));
+      return res.status(502).json({ success: false, data: result, incident: { operatorNotified: incident.success } });
+    }
+    res.status(200).json({ success: true, data: result });
   } catch (error: any) {
+    await sendIngestionFailureEmail(error.message).catch(() => undefined);
     res.status(500).json({ success: false, error: error.message });
   }
 });

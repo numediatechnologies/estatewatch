@@ -45,3 +45,20 @@ export async function sendEstateAlertEmail(params: EmailParams) {
   if (error) return { success: false, error: error.message };
   return { success: true, messageId: data?.id, recipient: params.to };
 }
+
+export async function sendIngestionFailureEmail(errorMessage: string) {
+  const to = process.env.INGESTION_INCIDENT_EMAIL || process.env.ADMIN_EMAIL;
+  if (!to) return { success: false, error: 'INGESTION_INCIDENT_EMAIL or ADMIN_EMAIL not configured' };
+  if (!process.env.RESEND_API_KEY) return { success: false, error: 'RESEND_API_KEY not configured' };
+  const occurredAt = new Date().toISOString();
+  const dashboardUrl = process.env.APP_URL || 'https://estatewatch.marketdirect.co.za';
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { data, error } = await resend.emails.send({
+    from: process.env.RESEND_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>', to: [to],
+    subject: 'Action needed: EstateWatch Gazette run failed',
+    html: `<!doctype html><html><body style="font-family:Arial,sans-serif;background:#f1f5f9;padding:24px;color:#0f172a"><div style="max-width:620px;margin:auto;background:white;border-radius:14px;padding:28px"><div style="color:#b45309;font-weight:700">MARKETDIRECT.CO.ZA · ESTATEWATCH</div><h1 style="font-size:24px">Gazette check needs attention</h1><p>The scheduled Gazette run could not complete. No partial or invented estate records were published.</p><div style="background:#f8fafc;border-left:4px solid #dc2626;padding:14px;margin:20px 0"><strong>Technical detail</strong><br>${escapeHtml(errorMessage)}</div><p><strong>Time:</strong> ${escapeHtml(occurredAt)}</p><p>The next scheduled run will retry safely. An administrator can also run a protected discovery check.</p><a href="${escapeHtml(dashboardUrl)}" style="display:inline-block;background:#f59e0b;color:#0f172a;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:9px">Open EstateWatch</a></div></body></html>`,
+    text: `EstateWatch Gazette check needs attention\n\nThe scheduled run could not complete. No partial or invented records were published.\n\nTechnical detail: ${errorMessage}\nTime: ${occurredAt}\n\nThe next scheduled run will retry safely.\n${dashboardUrl}`,
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: true, messageId: data?.id, recipient: to };
+}

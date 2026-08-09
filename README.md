@@ -28,6 +28,8 @@ EstateWatch discovers South African Government Gazette J193 issues, extracts gen
 6. Valid records are stored, matched against active surname/province alerts, and sent through Resend.
 7. Unique issue, estate-source, and alert/estate/channel constraints make reruns idempotent.
 
+Discovery is treated as mission-critical. Each search page gets up to three bounded Firecrawl Scrape attempts with exponential backoff. Transient timeouts, rate limits and provider errors are retried; permanent client errors are not. If those attempts fail, EstateWatch makes one 15-second, no-credit request to the public Gazette search page and validates the same J193 structure before continuing. A 25-minute database lease prevents overlapping scheduled or manual runs. If both discovery paths fail, the cron endpoint returns a non-success HTTP status so Vercel records a failed invocation and sends a best-effort administrator incident email. It does not ingest partial or invented results, and the next scheduled run safely retries because completed source URLs remain deduplicated.
+
 Vercel Cron is the only production scheduler. Do not add a second GitHub Actions, Make.com or external scraping schedule: duplicate schedulers waste credits, create noisy failures and can overlap ingestion runs. GitHub Actions may still run offline tests, but it must not trigger Gazette discovery or ingestion.
 
 Gazette notices do not reliably state estate value, asset type, property ownership, or later executor workflow status. EstateWatch therefore returns `Unknown` for unsupported enrichment and does not advertise WhatsApp delivery. OCR and manual review are future additions for image-only or uncertain notices.
@@ -70,6 +72,7 @@ IDENTITY_MATCH_SECRET        HMAC secret for privacy-preserving exact SA ID matc
 ADMIN_EMAIL                  verified Neon account granted administrator role
 CRON_SECRET                  Vercel Cron bearer secret
 ESTATEWATCH_ALERT_EMAIL      optional controlled-test fallback recipient
+INGESTION_INCIDENT_EMAIL     optional operations recipient; defaults to ADMIN_EMAIL
 NEON_AUTH_BASE_URL           Neon Auth server URL
 ```
 

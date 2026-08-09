@@ -5,9 +5,28 @@ import { matchEstateToAlerts } from './matching.js';
 import { recordMatches } from './notifications.js';
 import type { AlertCriteria, DeceasedEstate } from './types.js';
 import { emptyIngestResult, type IngestResult } from './ingestTypes.js';
+import { randomUUID } from 'node:crypto';
+
+async function acquireIngestionLease(runId: string): Promise<boolean> {
+  const lease = await query(`INSERT INTO ingestion_locks(name,run_id,locked_until) VALUES('gazette-ingestion',$1,NOW()+INTERVAL '25 minutes')
+    ON CONFLICT(name) DO UPDATE SET run_id=EXCLUDED.run_id,locked_until=EXCLUDED.locked_until
+    WHERE ingestion_locks.locked_until < NOW() RETURNING run_id`, [runId]);
+  return lease.rowCount === 1;
+}
+
+async function releaseIngestionLease(runId: string): Promise<void> {
+  await query(`UPDATE ingestion_locks SET locked_until=NOW() WHERE name='gazette-ingestion' AND run_id=$1`, [runId]);
+}
 
 export async function runIngestion(options: { sourceUrls?: string[] } = {}): Promise<IngestResult> {
   const result = emptyIngestResult();
+  const runId = randomUUID();
+  if (!await acquireIngestionLease(runId)) {
+    result.status = 'flagged';
+    result.errors.push({ url: 'ingestion', error: 'Another Gazette ingestion run is already active' });
+    return result;
+  }
+  try {
   let gazettes: GazetteItem[];
   try {
     gazettes = (await discoverGazettes(createFirecrawlClient(), { maxPages: 10 })).gazettes;
@@ -23,6 +42,9 @@ export async function runIngestion(options: { sourceUrls?: string[] } = {}): Pro
   for (const gazette of gazettes) await processGazette(gazette, result);
   if (result.errors.length && !result.stats.estatesCreated) result.status = 'flagged';
   return result;
+  } finally {
+    await releaseIngestionLease(runId).catch((error) => console.error('Could not release ingestion lease', error));
+  }
 }
 
 function gazetteNumber(title: string): string {

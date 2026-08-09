@@ -156,6 +156,12 @@ export async function initializeDatabase() {
         ocr_confidence NUMERIC(5, 2),
         status VARCHAR(50)
       );
+      CREATE TABLE IF NOT EXISTS ingestion_locks (
+        name VARCHAR(100) PRIMARY KEY,
+        run_id UUID NOT NULL,
+        locked_until TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // One-time privacy backfill for records ingested before fingerprint support.

@@ -12,11 +12,17 @@ export interface GazetteItem extends z.infer<typeof gazetteItemSchema> { page: n
 export interface FirecrawlDiscoveryClient {
   scrape(url: string, options: { formats: ['markdown']; onlyMainContent: boolean }): Promise<{
     markdown?: string;
-    metadata?: { statusCode?: number; sourceURL?: string };
+    metadata?: { statusCode?: number; sourceURL?: string; fallback?: boolean; attempts?: number };
   }>;
 }
 
 export interface DiscoveryOptions { now?: Date; maxPages?: number }
+export interface ResilienceOptions {
+  attempts?: number;
+  baseDelayMs?: number;
+  fetchImpl?: typeof fetch;
+  sleep?: (milliseconds: number) => Promise<void>;
+}
 
 export interface DiscoveryResult {
   dateWindow: { from: string; to: string };
@@ -26,9 +32,74 @@ export interface DiscoveryResult {
   source: { provider: 'Firecrawl'; method: 'scrape'; query: 'J193'; jurisdiction: 'South Africa' };
 }
 
+const wait = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+
+function errorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const candidate = error as { status?: number; statusCode?: number; response?: { status?: number } };
+  return candidate.status ?? candidate.statusCode ?? candidate.response?.status;
+}
+
+function isTransient(error: unknown): boolean {
+  const status = errorStatus(error);
+  if (status) return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+  return /timeout|timed out|network|fetch failed|socket|ECONN|no markdown/i.test(error instanceof Error ? error.message : String(error));
+}
+
+function htmlToSearchMarkdown(html: string): string {
+  return html
+    .replace(/&amp;/g, '&')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&#x2F;|&#47;/gi, '/')
+    .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_match, href, label) => {
+      const text = String(label).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const absoluteHref = String(href).startsWith('/') ? `https://gazettes.africa${href}` : href;
+      return `[${text}](${absoluteHref})`;
+    });
+}
+
+/** Adds bounded retry and a no-credit direct-source fallback around Firecrawl Scrape. */
+export function createResilientDiscoveryClient(client: FirecrawlDiscoveryClient, options: ResilienceOptions = {}): FirecrawlDiscoveryClient {
+  const attempts = Math.max(1, options.attempts ?? 3);
+  const baseDelayMs = Math.max(0, options.baseDelayMs ?? 750);
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const sleep = options.sleep ?? wait;
+  return {
+    async scrape(url, scrapeOptions) {
+      let lastError: unknown;
+      for (let attempt = 1; attempt <= attempts; attempt++) {
+        try {
+          const response = await client.scrape(url, scrapeOptions);
+          if (!response.markdown) throw new Error(`Firecrawl returned no markdown for ${url}`);
+          return { ...response, metadata: { ...response.metadata, attempts: attempt } };
+        } catch (error) {
+          lastError = error;
+          if (!isTransient(error) || attempt === attempts) break;
+          await sleep(baseDelayMs * (2 ** (attempt - 1)));
+        }
+      }
+      try {
+        const response = await fetchImpl(url, {
+          headers: { accept: 'text/html', 'user-agent': 'EstateWatch/1.0 (+https://estatewatch.marketdirect.co.za)' },
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!response.ok) throw new Error(`Gazette fallback returned HTTP ${response.status}`);
+        const markdown = htmlToSearchMarkdown(await response.text());
+        if (!parseGazetteSearchMarkdown(markdown).length) throw new Error('Gazette fallback returned no valid J193 results');
+        return { markdown, metadata: { statusCode: response.status, sourceURL: url, fallback: true, attempts } };
+      } catch (fallbackError) {
+        const primary = lastError instanceof Error ? lastError.message : String(lastError);
+        const fallback = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+        throw new Error(`Gazette discovery failed after ${attempts} attempts (${primary}); direct-source fallback failed (${fallback})`);
+      }
+    },
+  };
+}
+
 export function createFirecrawlClient(apiKey = process.env.FIRECRAWL_API_KEY): FirecrawlDiscoveryClient {
   if (!apiKey) throw new Error('FIRECRAWL_API_KEY not configured in environment');
-  return new Firecrawl({ apiKey }) as FirecrawlDiscoveryClient;
+  const nativeClient = new Firecrawl({ apiKey }) as FirecrawlDiscoveryClient;
+  return createResilientDiscoveryClient(nativeClient);
 }
 
 export function fourMonthsAgo(now: Date): Date {
@@ -79,6 +150,8 @@ export async function discoverGazettes(client: FirecrawlDiscoveryClient, options
       const response = await client.scrape(url, { formats: ['markdown'], onlyMainContent: true });
       pagesInspected++;
       if (!response.markdown) throw new Error(`Firecrawl returned no markdown for ${url}`);
+      if (response.metadata?.fallback) warnings.push(`Firecrawl was unavailable; inspected ${url} directly.`);
+      else if ((response.metadata?.attempts ?? 1) > 1) warnings.push(`Firecrawl recovered after ${response.metadata?.attempts} attempts for ${url}.`);
       const pageGazettes = parseGazetteSearchMarkdown(response.markdown);
       if (!pageGazettes.length) {
         warnings.push(`No J193 results found on ${url}`);

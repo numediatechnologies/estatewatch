@@ -78,4 +78,17 @@ describe('Firecrawl API', () => {
     expect(response.status).toBe(503);
     expect(response.body.error).toContain('FIRECRAWL_API_KEY');
   });
+
+  it('makes flagged cron runs visible to the scheduler', async () => {
+    const previous = process.env.CRON_SECRET;
+    process.env.CRON_SECRET = 'cron-test-secret';
+    const flagged = emptyIngestResult();
+    flagged.status = 'flagged';
+    flagged.errors.push({ url: 'discovery', error: 'temporary provider outage' });
+    const app = createApp({ discover: vi.fn(), createClient: () => ({}) as FirecrawlDiscoveryClient, ingest: vi.fn().mockResolvedValue(flagged) });
+    const response = await request(app).get('/api/cron/ingest').set('Authorization', 'Bearer cron-test-secret');
+    expect(response.status).toBe(502);
+    expect(response.body).toMatchObject({ success: false, incident: { operatorNotified: false } });
+    if (previous === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = previous;
+  });
 });
