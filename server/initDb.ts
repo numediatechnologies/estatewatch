@@ -5,6 +5,7 @@ export async function initializeDatabase() {
   console.log('⚡ Initializing Neon PostgreSQL Database Schema...');
 
   try {
+    await query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
     // 1. Estates Table
     await query(`
       CREATE TABLE IF NOT EXISTS estates (
@@ -68,9 +69,10 @@ export async function initializeDatabase() {
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS recipient_phone VARCHAR(30);
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS id_number_hash VARCHAR(64);
       ALTER TABLE alerts ADD COLUMN IF NOT EXISTS id_number_match_masked VARCHAR(20);
+      ALTER TABLE alerts ADD COLUMN IF NOT EXISTS delivery_state VARCHAR(30) NOT NULL DEFAULT 'paused';
       CREATE INDEX IF NOT EXISTS alerts_id_number_hash_idx ON alerts (id_number_hash) WHERE id_number_hash IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS alerts_owner_idx ON alerts(owner_id, created_at DESC);
     `);
-
     // 3. Pipeline Table
     await query(`
       CREATE TABLE IF NOT EXISTS pipeline (
@@ -145,7 +147,25 @@ export async function initializeDatabase() {
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS registration_verifications_email_idx ON registration_verifications(email, created_at DESC);
+      CREATE INDEX IF NOT EXISTS registration_verifications_phone_idx ON registration_verifications(phone_number, created_at DESC);
+      CREATE TABLE IF NOT EXISTS audit_events (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(), event_type VARCHAR(100) NOT NULL,
+        actor_id VARCHAR(255), actor_email VARCHAR(255), actor_role VARCHAR(30), user_id VARCHAR(255),
+        channel VARCHAR(50), status VARCHAR(50), subject_type VARCHAR(100), subject_id VARCHAR(255),
+        idempotency_key VARCHAR(255) UNIQUE, metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS audit_events_user_idx ON audit_events(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS audit_events_type_idx ON audit_events(event_type, created_at DESC);
+      CREATE TABLE IF NOT EXISTS app_settings (
+        setting_key VARCHAR(100) PRIMARY KEY,
+        setting_value TEXT NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
     `);
+    if (process.env.ADMIN_EMAIL) {
+      await query(`UPDATE alerts SET owner_id=(SELECT auth_subject FROM user_profiles WHERE lower(email)=lower($1)) WHERE owner_id IS NULL AND EXISTS (SELECT 1 FROM user_profiles WHERE lower(email)=lower($1))`, [process.env.ADMIN_EMAIL]);
+    }
 
     // 5. Ingestion Logs Table
     await query(`

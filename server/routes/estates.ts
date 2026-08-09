@@ -1,16 +1,18 @@
 import { Router } from 'express';
 import { query } from '../db.js';
 import { estateSchema } from '../types.js';
-import { mapEstateRow } from '../mappers.js';
+import { mapEstateRow, mapEstatePreview } from '../mappers.js';
+import { getEntitlement } from '../entitlements.js';
 import { validate } from '../validate.js';
 import { readSession } from '../auth.js';
 
 export const estatesRouter = Router();
 
-estatesRouter.get('/', async (_req, res) => {
+estatesRouter.get('/', async (req, res) => {
   try {
     const result = await query('SELECT * FROM estates ORDER BY created_at DESC;');
-    res.json(result.rows.map(mapEstateRow));
+    const entitled = (await getEntitlement(readSession(req))).active;
+    res.json(result.rows.map((row) => entitled ? mapEstateRow(row) : mapEstatePreview(row)));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -38,7 +40,8 @@ estatesRouter.get('/:id', async (req, res) => {
   try {
     const result = await query('SELECT * FROM estates WHERE id = $1', [req.params.id]);
     if (!result.rows[0]) return res.status(404).json({ error: 'Estate record not found' });
-    res.json(mapEstateRow(result.rows[0]));
+    const entitled = (await getEntitlement(readSession(req))).active;
+    res.json(entitled ? mapEstateRow(result.rows[0]) : mapEstatePreview(result.rows[0]));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

@@ -33,6 +33,30 @@ export function mapEstateRow(row: DbEstateRow): DeceasedEstate {
   };
 }
 
+export function mapEstatePreview(row: DbEstateRow): Partial<DeceasedEstate> {
+  return {
+    id: row.id,
+    sourceId: row.source_id,
+    deceasedName: row.deceased_name,
+    idNumberMasked: row.id_number_masked,
+    dateOfDeath: row.date_of_death,
+    gazetteDate: row.gazette_date,
+    province: row.province,
+    district: row.district,
+    masterOffice: row.master_office,
+    estateNumber: row.estate_number,
+    executorName: '',
+    executorContact: '',
+    executorEmail: '',
+    valueBand: row.value_band,
+    assetTypes: row.asset_types || [],
+    rawNoticeSnippet: '',
+    gazetteRef: row.gazette_ref,
+    status: row.status,
+    hasProperty: row.has_property,
+  };
+}
+
 export function mapAlertRow(row: any): AlertCriteria {
   return {
     id: row.id,
@@ -49,8 +73,9 @@ export function mapAlertRow(row: any): AlertCriteria {
     lastTriggered: row.last_triggered || undefined,
     createdAt: row.created_at,
     recipientEmail: row.recipient_email || undefined,
-    recipientPhone: row.recipient_phone || undefined,
+    recipientPhone: row.recipient_phone ? `***${String(row.recipient_phone).replace(/\D/g, '').slice(-4)}` : undefined,
     ownerName: row.owner_name || undefined,
     idNumberMatchMasked: row.id_number_match_masked || undefined,
+    deliveryState: row.delivery_state || (row.is_active ? 'active' : 'paused'),
   };
 }

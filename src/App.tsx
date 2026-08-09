@@ -59,7 +59,7 @@ export function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.has('reset-password')) setShowLoginModal(true);
     void restoreNeonSession().then((user) => {
-      if (user) setCurrentUser({ id: user.id, email: user.email, name: user.name, role: user.role, subscriptionActive: user.subscriptionActive, userPersona: 'attorney' });
+      if (user) setCurrentUser({ id: user.id, email: user.email, name: user.name, role: user.role, subscriptionActive: user.subscriptionActive, userPersona: 'attorney', companyName: user.companyName, phoneMasked: user.phoneMasked, phoneVerified: user.phoneVerified, subscriptionStatus: user.subscriptionStatus, subscriptionExpiresAt: user.subscriptionExpiresAt });
     });
   }, []);
 
@@ -200,6 +200,7 @@ export function App() {
 
   // Alert Rules Handlers
   const handleCreateAlert = async (newAlert: AlertCriteria) => {
+    if (!currentUser) { setShowLoginModal(true); return false; }
     const saved = await createAlertApi(newAlert);
     if (saved) {
       setAlerts(prev => [saved, ...prev]);
@@ -209,6 +210,7 @@ export function App() {
   };
 
   const handleUpdateAlert = async (updatedAlert: AlertCriteria) => {
+    if (!currentUser) { setShowLoginModal(true); return false; }
     const saved = await updateAlertApi(updatedAlert);
     if (!saved) return false;
     setAlerts(prev => prev.map(alert => alert.id === saved.id ? saved : alert));
@@ -404,7 +406,7 @@ export function App() {
           )}
 
           {activeTab === 'billing' && (
-            <BillingView isAdmin={currentUser?.role === 'admin'} />
+            <BillingView isAdmin={currentUser?.role === 'admin'} subscriptionActive={currentUser?.subscriptionActive} subscriptionStatus={currentUser?.subscriptionStatus} subscriptionExpiresAt={currentUser?.subscriptionExpiresAt} />
           )}
 
         </main>
@@ -496,6 +498,8 @@ export function App() {
           setCurrentUser(account);
           setCurrentRole(account.userPersona);
           setShowLoginModal(false);
+          void fetchAlerts().then((items) => { if (items) setAlerts(items); });
+          void fetchEstates().then((items) => { if (items) setEstates(items); });
         }}
         onLogout={async () => {
           await signOutFromNeon();

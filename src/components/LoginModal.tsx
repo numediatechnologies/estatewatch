@@ -94,7 +94,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         return;
       }
       if (mode === 'register' && verificationMethod === 'email') {
-        const result = await registerWithEmail(name, email, password);
+        const result = await registerWithEmail(name, companyName, email, password, phone);
         setSuccess(result.message); setPassword(''); return;
       }
       if (mode === 'register' && verificationMethod === 'sms' && !smsChallengeId) {
@@ -104,7 +104,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       const user = mode === 'register'
         ? await verifySmsRegistration(smsChallengeId, smsCode, name, email, password)
         : await signInWithNeon(email, password);
-      onLogin({ id: user.id, email: user.email, name: user.name || user.email.split('@')[0], role: user.role, userPersona: selectedPersona });
+      onLogin({ id: user.id, email: user.email, name: user.name || user.email.split('@')[0], role: user.role, userPersona: selectedPersona, companyName: user.companyName, subscriptionActive: user.subscriptionActive, phoneMasked: user.phoneMasked, phoneVerified: user.phoneVerified, subscriptionStatus: user.subscriptionStatus, subscriptionExpiresAt: user.subscriptionExpiresAt });
       onClose();
     } catch (err: any) { setError(err.message || 'Sign-in failed'); }
     finally { setSubmitting(false); }
@@ -156,6 +156,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 <div>
                   <div className="font-bold text-sm text-white">{currentUser.name}</div>
                   <div className="text-xs text-slate-400">{currentUser.email}</div>
+                  <div className="text-[10px] text-slate-500">Mobile: {currentUser.phoneMasked || 'not captured'} {currentUser.phoneVerified ? <span className="text-emerald-400">verified</span> : <span className="text-amber-400">verify later</span>}</div>
                 </div>
               </div>
               <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border ${
@@ -272,9 +273,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 />
               </div>}
 
-              {mode === 'register' && verificationMethod === 'sms' && <div className="space-y-1">
+              {mode === 'register' && <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-300">South African mobile number</label>
                 <input type="tel" placeholder="063 791 1099" value={phone} disabled={Boolean(smsChallengeId)} required onChange={(e) => setPhone(e.target.value)} className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500 disabled:opacity-60" />
+                <p className="text-[11px] text-slate-500">Required for alerts. We will attempt SMS verification; if SMS is unavailable, verify your account by email and verify the mobile later.</p>
               </div>}
               {mode === 'register' && verificationMethod === 'sms' && smsChallengeId && <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-300">Six-digit SMS code</label>

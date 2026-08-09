@@ -1,5 +1,18 @@
 import { DeceasedEstate, AlertCriteria, PipelineItem, NotificationEvent } from '../types';
 
+export interface AdminSettings {
+  legalCompanyName: string;
+  tradingName: string;
+  notificationEmail: string;
+  adminEmail: string;
+  resendConfigured: boolean;
+  zeptomailConfigured: boolean;
+  emailProvider: string;
+  neonAuthConfigured: boolean;
+}
+export interface AdminSubscriptionUser { id:string; email:string; name?:string; role:string; phoneMasked?:string|null; phoneVerified:boolean; subscriptionStatus:string; subscriptionExpiresAt?:string|null; createdAt?:string; }
+export interface AuditEvent { id:string; event_type:string; actor_email?:string; user_id?:string; channel?:string; status?:string; subject_type?:string; subject_id?:string; metadata?:Record<string,unknown>; created_at:string; }
+
 const API_BASE = '/api';
 const apiFetch: typeof fetch = (input, init = {}) => fetch(input, { ...init, credentials: 'include' });
 
@@ -13,6 +26,41 @@ export async function fetchHealthCheck() {
     return null;
   }
 }
+
+export async function fetchAdminSettings(): Promise<AdminSettings | null> {
+  try {
+    const res = await apiFetch(`${API_BASE}/admin/settings`);
+    if (!res.ok) throw new Error('Failed to fetch admin settings');
+    return await res.json();
+  } catch (err) {
+    console.error('Error loading admin settings:', err);
+    return null;
+  }
+}
+
+export async function updateAdminSettings(settings: Pick<AdminSettings, 'legalCompanyName' | 'tradingName' | 'notificationEmail'>): Promise<AdminSettings | null> {
+  try {
+    const res = await apiFetch(`${API_BASE}/admin/settings`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
+    if (!res.ok) throw new Error('Failed to save admin settings');
+    return await res.json();
+  } catch (err) {
+    console.error('Error saving admin settings:', err);
+    return null;
+  }
+}
+
+export async function sendAdminTestEmail(to: string): Promise<{ success: boolean; error?: string; messageId?: string }> {
+  try {
+    const res = await apiFetch(`${API_BASE}/admin/settings/test-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to }) });
+    return await res.json();
+  } catch (err) {
+    console.error('Error sending admin test email:', err);
+    return { success: false, error: 'The test email request failed.' };
+  }
+}
+export async function fetchAdminSubscriptions(): Promise<AdminSubscriptionUser[] | null> { try { const res=await apiFetch(`${API_BASE}/admin/subscriptions`); if(!res.ok)throw new Error('Failed to load subscriptions'); return await res.json(); } catch(err){ console.error(err); return null; } }
+export async function updateAdminSubscription(id:string, status:string, expiresAt?:string): Promise<boolean> { try { const res=await apiFetch(`${API_BASE}/admin/subscriptions/${encodeURIComponent(id)}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,expiresAt:expiresAt||null})}); return res.ok; } catch(err){console.error(err);return false;} }
+export async function fetchAdminAudit(): Promise<AuditEvent[] | null> { try { const res=await apiFetch(`${API_BASE}/admin/audit?limit=300`); if(!res.ok)throw new Error('Failed to load audit history'); return await res.json(); } catch(err){console.error(err);return null;} }
 
 export async function fetchEstates(): Promise<DeceasedEstate[] | null> {
   try {
