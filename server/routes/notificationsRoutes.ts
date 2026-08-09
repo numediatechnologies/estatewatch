@@ -63,7 +63,6 @@ notificationsRouter.post('/send-email', validate(sendEmailSchema), async (req, r
       success: true,
       message: `Email notification sent successfully to ${recipientEmail}!`,
       messageId: emailResult.messageId,
-      previewUrl: emailResult.previewUrl,
       sentAt,
     });
   } catch (err: any) {

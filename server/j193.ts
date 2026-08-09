@@ -6,7 +6,7 @@ export const PARSER_VERSION = 'j193-v1';
 const RECORD_START = /(?:^|\n)(\d{3,6}\/\d{4})\s*[—-]\s*\(2\)/g;
 
 export async function extractPdfText(buffer: Uint8Array): Promise<string> {
-  const pdf = await getDocument({ data: buffer, useWorkerFetch: false, isEvalSupported: false }).promise;
+  const pdf = await getDocument({ data: buffer, useWorkerFetch: false }).promise;
   const pages: string[] = [];
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
     const page = await pdf.getPage(pageNumber);
