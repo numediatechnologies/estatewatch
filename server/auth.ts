@@ -59,8 +59,14 @@ export function clearSessionCookie(res: Response) {
 export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string }) {
   const baseUrl = process.env.NEON_AUTH_BASE_URL?.replace(/\/$/, '');
   if (!baseUrl) throw new Error('NEON_AUTH_BASE_URL is required');
-  const origin = process.env.APP_URL || 'http://localhost:3000';
-  const response = await fetch(`${baseUrl}/${mode}/email`, { method: 'POST', headers: { 'content-type': 'application/json', origin }, body: JSON.stringify(body) });
+  // This request originates from our trusted API, not the browser. Forwarding the
+  // public app Origin makes Neon Auth apply its browser trusted-origin allowlist
+  // and rejects otherwise valid server-to-server sign-ins on custom domains.
+  const response = await fetch(`${baseUrl}/${mode}/email`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
   const result: any = await response.json().catch(() => ({}));
   if (!response.ok) throw Object.assign(new Error(result.message || result.error || 'Authentication failed'), { status: response.status });
   const user = result.user;
