@@ -39,7 +39,7 @@ describe('application authentication', () => {
     const transportMock = vi.fn().mockResolvedValue({ status: 200, data: { status: true } });
     await requestPasswordResetWithNeon('owner@example.com', transportMock);
     expect(transportMock).toHaveBeenNthCalledWith(1, 'https://auth.example.test/request-password-reset', {
-      email: 'owner@example.com', redirectTo: 'https://estatewatch.marketdirect.co.za/?reset-password=1',
+      email: 'owner@example.com', redirectTo: '/?reset-password=1',
     }, 'https://estatewatch.marketdirect.co.za');
     await resetPasswordWithNeon('valid-reset-token', 'new-secure-password', transportMock);
     expect(transportMock).toHaveBeenNthCalledWith(2, 'https://auth.example.test/reset-password', {

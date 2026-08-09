@@ -107,7 +107,9 @@ export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { 
 }
 
 export async function requestPasswordResetWithNeon(email: string, transport: AuthTransport = postAuthJson) {
-  const redirectTo = `${new URL(process.env.APP_URL || 'http://localhost:3000').origin}/?reset-password=1`;
+  // Better Auth validates callback destinations against trusted origins. A
+  // relative callback stays on the requesting EstateWatch origin in every env.
+  const redirectTo = '/?reset-password=1';
   await callNeonAuth('request-password-reset', { email, redirectTo }, transport);
 }
 
