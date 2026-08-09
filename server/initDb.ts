@@ -95,6 +95,12 @@ export async function initializeDatabase() {
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS provider_message_id VARCHAR(255);
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS attempts INT DEFAULT 0;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS error TEXT;
+      DELETE FROM notifications older
+      USING notifications newer
+      WHERE older.alert_id = newer.alert_id
+        AND older.estate_id = newer.estate_id
+        AND older.channel = newer.channel
+        AND older.ctid < newer.ctid;
       CREATE UNIQUE INDEX IF NOT EXISTS notifications_alert_estate_channel_unique ON notifications (alert_id, estate_id, channel);
       CREATE TABLE IF NOT EXISTS gazette_issues (
         id VARCHAR(100) PRIMARY KEY,
