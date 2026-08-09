@@ -22,7 +22,7 @@
       "dest": "/server/index.ts"
     },
     {
-      "src": "/(assets/.*|robots\\.txt|sitemap\\.xml|site\\.webmanifest)",
+      "src": "/(assets/.*|robots\\.txt|sitemap\\.xml|site\\.webmanifest|favicon\\.ico|favicon-128\\.png)",
       "dest": "/dist/$1"
     },
     {

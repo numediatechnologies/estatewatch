@@ -129,7 +129,8 @@ export const PipelineCrmView: React.FC<PipelineCrmViewProps> = ({
       </div>
 
       {/* Kanban Board Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 overflow-x-auto pb-4">
+      <div className="overflow-x-auto pb-4 -mx-1 px-1">
+        <div className="grid grid-cols-5 gap-4 min-w-[1380px]">
         {STAGES.map((stage) => {
           const priorityRank = { low: 1, medium: 2, high: 3 };
           const parseTime = (value?: string) => value ? Date.parse(value.replace(' ', 'T')) || 0 : 0;
@@ -163,7 +164,7 @@ export const PipelineCrmView: React.FC<PipelineCrmViewProps> = ({
           return (
             <div
               key={stage.id}
-              className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-3 flex flex-col min-w-[260px] space-y-3"
+              className="w-[260px] bg-slate-900/90 border border-slate-800/80 rounded-2xl p-3 flex flex-col space-y-3"
             >
               {/* Stage Header */}
               <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold ${stage.color}`}>
@@ -291,6 +292,7 @@ export const PipelineCrmView: React.FC<PipelineCrmViewProps> = ({
             </div>
           );
         })}
+        </div>
       </div>
 
     </div>
