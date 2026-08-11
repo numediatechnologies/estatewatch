@@ -3,11 +3,13 @@ import { CheckCircle2, Mail, Save, Settings, ShieldCheck, Send } from 'lucide-re
 import { AdminSettings, fetchAdminSettings, sendAdminTestEmail, updateAdminSettings } from '../services/api';
 import { AdminEntitlementsView } from './AdminEntitlementsView';
 import { AdminOperationalIncidentsView } from './AdminOperationalIncidentsView';
+import { BrandName } from './BrandName';
+import { AdminDataQualityView } from './AdminDataQualityView';
 
 export const AdminSettingsView: React.FC = () => {
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [legalCompanyName, setLegalCompanyName] = useState('NuMedia Direct Marketing (Pty) Ltd');
-  const [tradingName, setTradingName] = useState('EstateWatch');
+  const [tradingName, setTradingName] = useState('ESTATEWATCH 👁️');
   const [notificationEmail, setNotificationEmail] = useState('');
   const [testEmail, setTestEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -80,12 +82,13 @@ export const AdminSettingsView: React.FC = () => {
           </label>
           <button type="button" onClick={() => void sendTest()} className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 flex items-center gap-2"><Send className="w-4 h-4 text-amber-400" />Send test email</button>
         </div>
-          <div className="text-[11px] text-slate-500 flex items-start gap-2"><ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />Auto mode tries Resend first and uses ZeptoMail (Zoho) only if Resend fails; it does not intentionally send duplicate copies. Registration, verification, and password-reset emails are handled separately by Neon Auth.</div>
+          <div className="text-[11px] text-slate-500 flex items-start gap-2"><ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />Auto mode tries Resend first and uses ZeptoMail (Zoho) only if Resend fails; it does not intentionally send duplicate copies. Registration, verification, and password-reset emails are handled separately by the secure authentication service.</div>
       </div>
     </div>
     {message && <p role="status" className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />{message}</p>}
     {error && <p role="alert" className="text-xs text-rose-400 font-semibold flex items-center gap-1.5"><Mail className="w-4 h-4" />{error}</p>}
     <AdminOperationalIncidentsView />
+    <AdminDataQualityView />
     <AdminEntitlementsView />
   </div>;
 };

@@ -18,6 +18,7 @@ import { listOperationalIncidents, notifyAdminOfIncident, resolveOperationalInci
 import { buildMarketDirectContactPayload, sendContactToMarketDirectCrm } from './leadCrmService.js';
 import { ALLOWED_CONTACT_ENQUIRIES, applySecurityHeaders, CONTACT_FIELD_LIMITS, consumeContactRateLimit } from './security.js';
 import { recordAuditEvent, maskedPhone } from './audit.js';
+import { getDataQualityReport } from './estateRetention.js';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -271,6 +272,10 @@ application.post('/api/admin/settings/test-email', requireAdmin, async (req, res
 });
 application.get('/api/admin/incidents', requireAdmin, async (req, res) => {
   try { res.json(await listOperationalIncidents(Number(req.query.limit) || 100)); }
+  catch (error: any) { res.status(500).json({ error: error.message }); }
+});
+application.get('/api/admin/data-quality', requireAdmin, async (_req, res) => {
+  try { res.json(await getDataQualityReport()); }
   catch (error: any) { res.status(500).json({ error: error.message }); }
 });
 application.patch('/api/admin/incidents/:id/resolve', requireAdmin, async (req, res) => {

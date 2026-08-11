@@ -3,11 +3,24 @@ import { query } from '../db.js';
 import { mapEstateRow } from '../mappers.js';
 import { pipelineCreateSchema, pipelineUpdateSchema } from '../types.js';
 import { validate } from '../validate.js';
+import { readSession } from '../auth.js';
+import { liveEstatePredicate } from '../estateRetention.js';
 
 export const pipelineRouter = Router();
 
-pipelineRouter.get('/', async (_req, res) => {
+function sessionOr401(req: any, res: any) {
+  const session = readSession(req);
+  if (!session) {
+    res.status(401).json({ error: 'Sign in to manage saved opportunities' });
+    return null;
+  }
+  return session;
+}
+
+pipelineRouter.get('/', async (req, res) => {
   try {
+    const session = sessionOr401(req, res);
+    if (!session) return;
     const result = await query(`
       SELECT p.*, e.id as estate_id, e.source_id, e.deceased_name, e.id_number_masked,
              e.date_of_death, e.gazette_date, e.province, e.district, e.master_office,
@@ -16,8 +29,9 @@ pipelineRouter.get('/', async (_req, res) => {
              e.status as estate_status, e.has_property, e.property_details
       FROM pipeline p
       JOIN estates e ON p.estate_id = e.id
+      WHERE (${liveEstatePredicate('e')}) AND ($1 = 'admin' OR p.owner_id = $2)
       ORDER BY p.updated_at DESC;
-    `);
+    `, [session.role, session.sub]);
     const items = result.rows.map((row) => ({
       id: row.id,
       estateId: row.estate_id,

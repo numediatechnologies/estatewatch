@@ -5,12 +5,13 @@ import { mapEstateRow, mapEstatePreview } from '../mappers.js';
 import { getEntitlement } from '../entitlements.js';
 import { validate } from '../validate.js';
 import { readSession } from '../auth.js';
+import { liveEstatePredicate, isWithinLiveWindow } from '../estateRetention.js';
 
 export const estatesRouter = Router();
 
 estatesRouter.get('/', async (req, res) => {
   try {
-    const result = await query('SELECT * FROM estates ORDER BY created_at DESC;');
+    const result = await query(`SELECT * FROM estates e WHERE ${liveEstatePredicate('e')} ORDER BY e.created_at DESC;`);
     const entitled = (await getEntitlement(readSession(req))).active;
     res.json(result.rows.map((row) => entitled ? mapEstateRow(row) : mapEstatePreview(row)));
   } catch (err: any) {
@@ -29,7 +30,7 @@ estatesRouter.get('/:id/source', async (req, res) => {
       entitled = row?.subscription_status === 'active' && (!row.subscription_expires_at || new Date(row.subscription_expires_at) > new Date());
     }
     if (!entitled) return res.status(403).json({ error: 'An active subscription is required to view the original Gazette PDF' });
-    const result = await query('SELECT source_url FROM estates WHERE id=$1', [req.params.id]);
+    const result = await query(`SELECT source_url FROM estates e WHERE e.id=$1 AND ${liveEstatePredicate('e')}`, [req.params.id]);
     if (!result.rows[0]) return res.status(404).json({ error: 'Estate record not found' });
     if (!result.rows[0].source_url) return res.status(404).json({ error: 'Original Gazette PDF is not available for this record' });
     res.json({ url: result.rows[0].source_url });
@@ -38,7 +39,7 @@ estatesRouter.get('/:id/source', async (req, res) => {
 
 estatesRouter.get('/:id', async (req, res) => {
   try {
-    const result = await query('SELECT * FROM estates WHERE id = $1', [req.params.id]);
+    const result = await query(`SELECT * FROM estates e WHERE e.id = $1 AND ${liveEstatePredicate('e')}`, [req.params.id]);
     if (!result.rows[0]) return res.status(404).json({ error: 'Estate record not found' });
     const entitled = (await getEntitlement(readSession(req))).active;
     res.json(entitled ? mapEstateRow(result.rows[0]) : mapEstatePreview(result.rows[0]));
@@ -49,7 +50,11 @@ estatesRouter.get('/:id', async (req, res) => {
 
 estatesRouter.post('/', validate(estateSchema), async (req, res) => {
   try {
+    const session = readSession(req);
+    if (!session) return res.status(401).json({ error: 'Administrator access required' });
+    if (session.role !== 'admin') return res.status(403).json({ error: 'Administrator access required' });
     const e = req.body;
+    if (!isWithinLiveWindow(String(e.gazetteDate || ''))) return res.status(400).json({ error: 'Estate Gazette date must be within the current four-month window' });
     const id = e.id || `est-${Date.now()}`;
     await query(
       `INSERT INTO estates (

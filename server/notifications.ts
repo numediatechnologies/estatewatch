@@ -6,6 +6,7 @@ import { MatchResult } from './matching.js';
 import { getEntitlement } from './entitlements.js';
 import { recordAuditEvent } from './audit.js';
 import { recordOperationalIncident } from './operationalIncidents.js';
+import { isWithinLiveWindow } from './estateRetention.js';
 
 export interface DispatchedEvent {
   id: string;
@@ -26,6 +27,7 @@ export async function recordMatches(
   matches: MatchResult[],
   recipientOverride?: string
 ): Promise<DispatchedEvent[]> {
+  if (!isWithinLiveWindow(estate.gazetteDate)) return [];
   const events: DispatchedEvent[] = [];
   for (const match of matches) {
     const owner = await query(`SELECT a.owner_id, p.role, p.email, p.display_name, p.phone_verified_at

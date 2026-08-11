@@ -4,13 +4,32 @@ import { sendEstateAlertEmail } from '../emailService.js';
 import { recordOperationalIncident } from '../operationalIncidents.js';
 import { sendEmailSchema } from '../types.js';
 import { validate } from '../validate.js';
+import { readSession } from '../auth.js';
+import { liveEstatePredicate, isWithinLiveWindow } from '../estateRetention.js';
 
 export const notificationsRouter = Router();
 
+function sessionOr401(req: any, res: any) {
+  const session = readSession(req);
+  if (!session) {
+    res.status(401).json({ error: 'Sign in to view alert delivery history' });
+    return null;
+  }
+  return session;
+}
+
 notificationsRouter.get('/', async (req, res) => {
   try {
+    const session = sessionOr401(req, res);
+    if (!session) return;
     const alertId = typeof req.query.alertId === 'string' ? req.query.alertId : null;
-    const result = await query('SELECT * FROM notifications WHERE ($1::text IS NULL OR alert_id=$1) ORDER BY sent_at DESC LIMIT 2000;', [alertId]);
+    const result = await query(`SELECT n.* FROM notifications n
+      LEFT JOIN alerts a ON a.id=n.alert_id
+      JOIN estates e ON e.id=n.estate_id
+      WHERE ($1::text IS NULL OR n.alert_id=$1)
+        AND ${liveEstatePredicate('e')}
+        AND ($2='admin' OR a.owner_id=$3)
+      ORDER BY n.sent_at DESC LIMIT 2000;`, [alertId, session.role, session.sub]);
     res.json(
       result.rows.map((row) => ({
         id: row.id,
@@ -35,7 +54,10 @@ notificationsRouter.get('/', async (req, res) => {
 
 notificationsRouter.post('/send-email', validate(sendEmailSchema), async (req, res) => {
   try {
+    const session = sessionOr401(req, res);
+    if (!session) return;
     const { recipientEmail, estate, alertName } = req.body;
+    if (!isWithinLiveWindow(String(estate?.gazetteDate || ''))) return res.status(400).json({ error: 'Notifications are limited to the current four-month Gazette window' });
     const emailResult = await sendEstateAlertEmail({
       to: recipientEmail,
       subject: `[EstateWatch Alert] Match Found: ${estate.deceasedName} (${estate.estateNumber})`,
@@ -60,9 +82,9 @@ notificationsRouter.post('/send-email', validate(sendEmailSchema), async (req, r
     const notifId = `notif-${Date.now()}`;
     const sentAt = new Date().toISOString().replace('T', ' ').substring(0, 16);
     await query(
-      `INSERT INTO notifications (id, alert_id, alert_name, estate_id, deceased_name, estate_number, channel, sent_at, status, recipient)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
-      [notifId, 'alt-manual', alertName || 'Manual Dispatch', estate.id, estate.deceasedName, estate.estateNumber, 'email', sentAt, 'delivered', recipientEmail]
+      `INSERT INTO notifications (id, alert_id, alert_name, estate_id, deceased_name, estate_number, channel, sent_at, status, recipient, provider_message_id, attempts, error)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1, NULL);`,
+      [notifId, 'alt-manual', alertName || 'Manual Dispatch', estate.id, estate.deceasedName, estate.estateNumber, 'email', sentAt, 'sent', recipientEmail, emailResult.messageId || null]
     );
 
     res.json({
@@ -78,7 +100,14 @@ notificationsRouter.post('/send-email', validate(sendEmailSchema), async (req, r
 
 notificationsRouter.post('/:id/retry', async (req, res) => {
   try {
-    const result = await query(`SELECT n.*, e.* FROM notifications n JOIN estates e ON e.id=n.estate_id WHERE n.id=$1 AND n.channel='email' AND n.status='failed'`, [req.params.id]);
+    const session = sessionOr401(req, res);
+    if (!session) return;
+    const result = await query(`SELECT n.*, e.* FROM notifications n
+      JOIN estates e ON e.id=n.estate_id
+      LEFT JOIN alerts a ON a.id=n.alert_id
+      WHERE n.id=$1 AND n.channel='email' AND n.status='failed'
+        AND ${liveEstatePredicate('e')}
+        AND ($2='admin' OR a.owner_id=$3)`, [req.params.id, session.role, session.sub]);
     const row = result.rows[0];
     if (!row) return res.status(404).json({ error: 'Failed email notification not found' });
     const emailResult = await sendEstateAlertEmail({

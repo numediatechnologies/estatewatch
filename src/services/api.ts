@@ -14,6 +14,13 @@ export interface AdminSettings {
 export interface OperationalIncident { id:string; incident_type:string; severity:string; status:string; summary:string; detail:string; alert_id?:string|null; estate_id?:string|null; notification_id?:string|null; ingestion_id?:string|null; provider?:string|null; provider_attempts?:Array<{provider:string;success:boolean;error?:string}>; email_status?:string|null; occurrence_count:number; last_occurred_at:string; resolved_at?:string|null; }
 export interface AdminSubscriptionUser { id:string; email:string; name?:string; role:string; phoneMasked?:string|null; phoneVerified:boolean; subscriptionStatus:string; subscriptionExpiresAt?:string|null; createdAt?:string; }
 export interface AuditEvent { id:string; event_type:string; actor_email?:string; user_id?:string; channel?:string; status?:string; subject_type?:string; subject_id?:string; metadata?:Record<string,unknown>; created_at:string; }
+export interface DataQualityReport {
+  summary: { live_count:number; oldest_live_date?:string; newest_live_date?:string; outside_window:number; missing_provenance:number; missing_required:number };
+  quarantine: { quarantined_count:number; outside_window:number; missing_provenance:number };
+  duplicateCount:number;
+  issues:Array<{ id:string; title:string; published_date:string; source_url:string; status:string; records_detected:number; records_accepted:number; records_rejected:number; duplicates_skipped:number; missing_required:number; records_review:number; parser_version?:string; quality_status:string; quality_detail?:string; processed_at?:string }>;
+  retentionRuns:Array<{ id:string; cutoff_date:string; quarantined_count:number; duplicate_count:number; created_at:string }>;
+}
 
 const API_BASE = '/api';
 const apiFetch: typeof fetch = (input, init = {}) => fetch(input, { ...init, credentials: 'include' });
@@ -65,6 +72,7 @@ export async function resolveAdminIncident(id:string): Promise<boolean> { try { 
 export async function fetchAdminSubscriptions(): Promise<AdminSubscriptionUser[] | null> { try { const res=await apiFetch(`${API_BASE}/admin/subscriptions`); if(!res.ok)throw new Error('Failed to load subscriptions'); return await res.json(); } catch(err){ console.error(err); return null; } }
 export async function updateAdminSubscription(id:string, status:string, expiresAt?:string): Promise<boolean> { try { const res=await apiFetch(`${API_BASE}/admin/subscriptions/${encodeURIComponent(id)}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,expiresAt:expiresAt||null})}); return res.ok; } catch(err){console.error(err);return false;} }
 export async function fetchAdminAudit(): Promise<AuditEvent[] | null> { try { const res=await apiFetch(`${API_BASE}/admin/audit?limit=300`); if(!res.ok)throw new Error('Failed to load audit history'); return await res.json(); } catch(err){console.error(err);return null;} }
+export async function fetchAdminDataQuality(): Promise<DataQualityReport | null> { try { const res=await apiFetch(`${API_BASE}/admin/data-quality`); if(!res.ok) throw new Error('Failed to load data quality'); return await res.json(); } catch(err){ console.error(err); return null; } }
 
 export async function fetchEstates(): Promise<DeceasedEstate[] | null> {
   try {
