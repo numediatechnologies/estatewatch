@@ -116,7 +116,12 @@ export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { 
   // Email/password signup does not require a redirect target. Omitting callbackURL
   // avoids Neon Auth redirect-domain validation failures; verification still uses
   // Neon Auth's email flow and the user can return to the app and sign in.
-  const requestBody = body;
+  // Neon Auth's email signup schema still requires its legacy `name` field.
+  // Keep the UI and profile data split while sending the provider one derived
+  // display name for compatibility.
+  const requestBody = mode === 'sign-up'
+    ? { ...body, name: body.name || [body.firstName, body.surname].filter(Boolean).join(' ') }
+    : body;
   const result = await callNeonAuth(`${mode}/email`, requestBody, transport);
   const user = result.user;
   if (!user?.id || !user?.email) throw new Error(mode === 'sign-up' ? 'Check your email to verify the new account before signing in.' : 'Neon did not return a verified user.');
