@@ -29,8 +29,7 @@ describe('application authentication', () => {
     queryMock.mockResolvedValue({ rowCount: 1 });
     const result = await authenticateWithNeon('sign-up', { name: 'Support', email: 'support@marketdirect.co.za', password: 'valid-password' }, transportMock);
     expect(result.role).toBe('admin');
-    expect(transportMock).toHaveBeenCalledWith('https://auth.example.test/sign-up/email', expect.objectContaining({ name: 'Support' }), 'https://estatewatch.marketdirect.co.za');
-    expect(transportMock.mock.calls[0][1]).not.toHaveProperty('callbackURL');
+    expect(transportMock).toHaveBeenCalledWith('https://auth.example.test/sign-up/email', expect.objectContaining({ name: 'Support', callbackURL: 'https://estatewatch.marketdirect.co.za' }), 'https://estatewatch.marketdirect.co.za');
     expect(queryMock).toHaveBeenCalledWith(expect.stringContaining('user_profiles'), expect.arrayContaining(['admin']));
   });
 

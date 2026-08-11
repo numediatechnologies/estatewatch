@@ -112,14 +112,13 @@ export function clearSessionCookie(res: Response) {
 }
 
 export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string; firstName?: string; surname?: string; companyName?: string; phone?: string }, transport: AuthTransport = postAuthJson) {
-  // Email/password signup does not require a redirect target. Omitting callbackURL
-  // avoids Neon Auth redirect-domain validation failures; verification still uses
-  // Neon Auth's email flow and the user can return to the app and sign in.
+  // Use the canonical production origin for verification redirects. The
+  // temporary Vercel alias is not a trusted Neon Auth origin.
   // Neon Auth's email signup schema still requires its legacy `name` field.
   // Keep the UI and profile data split while sending the provider one derived
   // display name for compatibility.
   const requestBody = mode === 'sign-up'
-    ? { ...body, name: body.name || [body.firstName, body.surname].filter(Boolean).join(' ') }
+    ? { ...body, name: body.name || [body.firstName, body.surname].filter(Boolean).join(' '), callbackURL: applicationUrl() }
     : body;
   const result = await callNeonAuth(`${mode}/email`, requestBody, transport);
   const user = result.user;
