@@ -100,23 +100,27 @@ export function clearSessionCookie(res: Response) {
   res.clearCookie(COOKIE_NAME, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' });
 }
 
-export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string; companyName?: string; phone?: string }, transport: AuthTransport = postAuthJson) {
+export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string; firstName?: string; surname?: string; companyName?: string; phone?: string }, transport: AuthTransport = postAuthJson) {
   const requestBody = mode === 'sign-up' ? { ...body, callbackURL: process.env.APP_URL || '/' } : body;
   const result = await callNeonAuth(`${mode}/email`, requestBody, transport);
   const user = result.user;
   if (!user?.id || !user?.email) throw new Error(mode === 'sign-up' ? 'Check your email to verify the new account before signing in.' : 'Neon did not return a verified user.');
   const email = String(user.email).toLowerCase();
   const role = roleForEmail(email);
-  const name = user.name || body.name || email.split('@')[0];
+  const firstName = body.firstName?.trim() || undefined;
+  const surname = body.surname?.trim() || undefined;
+  const name = user.name || body.name || [firstName, surname].filter(Boolean).join(' ') || email.split('@')[0];
   await query('ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS company_name VARCHAR(255)');
+  await query('ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS first_name VARCHAR(120)');
+  await query('ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS surname VARCHAR(120)');
   const companyName = body.companyName?.trim() || undefined;
-  const profile = await query(`INSERT INTO user_profiles(auth_subject,email,display_name,company_name,role,phone_number) VALUES($1,$2,$3,$4,$5,$6)
-    ON CONFLICT(auth_subject) DO UPDATE SET email=EXCLUDED.email,display_name=EXCLUDED.display_name,company_name=COALESCE(EXCLUDED.company_name,user_profiles.company_name),role=EXCLUDED.role
-    RETURNING subscription_status,subscription_expires_at,company_name,phone_number,phone_verified_at`, [user.id, email, name, companyName || null, role, body.phone || null]);
+  const profile = await query(`INSERT INTO user_profiles(auth_subject,email,display_name,first_name,surname,company_name,role,phone_number) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+    ON CONFLICT(auth_subject) DO UPDATE SET email=EXCLUDED.email,display_name=EXCLUDED.display_name,first_name=COALESCE(EXCLUDED.first_name,user_profiles.first_name),surname=COALESCE(EXCLUDED.surname,user_profiles.surname),company_name=COALESCE(EXCLUDED.company_name,user_profiles.company_name),role=EXCLUDED.role
+    RETURNING subscription_status,subscription_expires_at,company_name,phone_number,phone_verified_at,first_name,surname`, [user.id, email, name, firstName || null, surname || null, companyName || null, role, body.phone || null]);
   const row = profile.rows?.[0];
   const subscriptionActive = role === 'admin' || (row?.subscription_status === 'active' && (!row.subscription_expires_at || new Date(row.subscription_expires_at) > new Date()));
   const phoneDigits = row?.phone_number ? String(row.phone_number).replace(/\D/g, '') : '';
-  return { sub: user.id as string, email, name, role, subscriptionActive, companyName: row?.company_name || companyName,
+  return { sub: user.id as string, email, name, firstName: row?.first_name || firstName, surname: row?.surname || surname, role, subscriptionActive, companyName: row?.company_name || companyName,
     phoneMasked: phoneDigits ? `***${phoneDigits.slice(-4)}` : undefined, phoneVerified: Boolean(row?.phone_verified_at),
     subscriptionStatus: row?.subscription_status || 'inactive', subscriptionExpiresAt: row?.subscription_expires_at || null };
 }

@@ -55,12 +55,13 @@ application.use(cors());
 application.use(express.json({ limit: '1mb' }));
 application.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, name, companyName, phone, verificationMethod = 'email' } = req.body || {};
+    const { email, password, firstName, surname, companyName, phone, verificationMethod = 'email' } = req.body || {};
     if (typeof email !== 'string' || typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: 'A valid email and password of at least 8 characters are required' });
+    if (typeof firstName !== 'string' || firstName.trim().length < 2 || typeof surname !== 'string' || surname.trim().length < 2) return res.status(400).json({ error: 'First name and surname are required' });
     if (verificationMethod !== 'email') return res.status(400).json({ error: 'Use the SMS verification start endpoint for mobile verification' });
-    let normalizedPhone: string;
-    try { normalizedPhone = normalizeSmsRecipient(String(phone || '')); } catch { return res.status(400).json({ error: 'A valid mobile number is required' }); }
-    const session = await authenticateWithNeon('sign-up', { email, password, name, companyName, phone: normalizedPhone });
+    let normalizedPhone: string | undefined;
+    if (String(phone || '').trim()) { try { normalizedPhone = normalizeSmsRecipient(String(phone)); } catch { return res.status(400).json({ error: 'A valid mobile number is required' }); } }
+    const session = await authenticateWithNeon('sign-up', { email, password, firstName: firstName.trim(), surname: surname.trim(), companyName, phone: normalizedPhone });
     await recordAuditEvent({ eventType:'account.registered', actor:session, status:'pending_email_verification', channel:'email', metadata:{ phone:maskedPhone(normalizedPhone) } });
     res.status(202).json({ success: true, verificationRequired: true, method: 'email', message: `Great! Check ${session.email} and follow the verification link, then sign in.` });
   } catch (error: any) { res.status(error.status || 400).json({ error: error.message }); }
@@ -116,14 +117,15 @@ application.post('/api/auth/register/sms/start', async (req, res) => {
 });
 application.post('/api/auth/register/sms/verify', async (req, res) => {
   try {
-    const { challengeId, code, email, password, name } = req.body || {};
+    const { challengeId, code, email, password, firstName, surname } = req.body || {};
     if (!/^[0-9]{6}$/.test(String(code || '')) || typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: 'Enter the six-digit code and a password of at least 8 characters' });
+    if (typeof firstName !== 'string' || firstName.trim().length < 2 || typeof surname !== 'string' || surname.trim().length < 2) return res.status(400).json({ error: 'First name and surname are required' });
     const result = await query(`SELECT * FROM registration_verifications WHERE id=$1 AND used_at IS NULL`, [challengeId]);
     const challenge = result.rows[0];
     if (!challenge || challenge.expires_at < new Date() || challenge.attempts >= 5 || challenge.email !== String(email).toLowerCase()) { await recordAuditEvent({ eventType:'phone.otp_rejected', channel:'sms', status:challenge?.expires_at < new Date()?'expired':'invalid', subjectType:'registration_verification', subjectId:String(challengeId||'') }); return res.status(400).json({ error: 'That code is invalid or expired. Request a new code.' }); }
     const expected = Buffer.from(challenge.code_hash); const actual = Buffer.from(verificationHash(challengeId, String(code)));
     if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) { await query('UPDATE registration_verifications SET attempts=attempts+1 WHERE id=$1', [challengeId]); await recordAuditEvent({eventType:'phone.otp_rejected',channel:'sms',status:'incorrect',subjectType:'registration_verification',subjectId:String(challengeId)}); return res.status(400).json({ error: 'That code is incorrect.' }); }
-    const session = await authenticateWithNeon('sign-up', { email: challenge.email, password, name, companyName: undefined, phone: challenge.phone_number });
+    const session = await authenticateWithNeon('sign-up', { email: challenge.email, password, firstName: firstName.trim(), surname: surname.trim(), companyName: undefined, phone: challenge.phone_number });
     await query('UPDATE registration_verifications SET used_at=NOW() WHERE id=$1', [challengeId]);
     await query('UPDATE user_profiles SET phone_number=$1,phone_verified_at=NOW() WHERE auth_subject=$2', [challenge.phone_number, session.sub]);
     await recordAuditEvent({ eventType:'phone.verification', actor:session, userId:session.sub, channel:'sms', status:'verified', subjectType:'registration_verification', subjectId:challengeId, metadata:{ phone:maskedPhone(challenge.phone_number) } });

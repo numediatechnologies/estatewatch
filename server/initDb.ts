@@ -132,6 +132,8 @@ export async function initializeDatabase() {
         role VARCHAR(30) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS first_name VARCHAR(120);
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS surname VARCHAR(120);
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS phone_number VARCHAR(30);
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(30) NOT NULL DEFAULT 'inactive';

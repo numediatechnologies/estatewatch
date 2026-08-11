@@ -50,7 +50,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [surname, setSurname] = useState('');
   const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [success, setSuccess] = useState('');
@@ -95,7 +96,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         return;
       }
       if (mode === 'register' && verificationMethod === 'email') {
-        const result = await registerWithEmail(name, companyName, email, password, phone);
+        const result = await registerWithEmail(firstName, surname, companyName, email, password, phone || undefined);
         setSuccess(result.message); setPassword(''); return;
       }
       if (mode === 'register' && verificationMethod === 'sms' && !smsChallengeId) {
@@ -103,7 +104,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         setSmsChallengeId(result.challengeId); setSuccess(result.message); return;
       }
       const user = mode === 'register'
-        ? await verifySmsRegistration(smsChallengeId, smsCode, name, email, password)
+        ? await verifySmsRegistration(smsChallengeId, smsCode, firstName, surname, email, password)
         : await signInWithNeon(email, password);
       onLogin({ id: user.id, email: user.email, name: user.name || user.email.split('@')[0], role: user.role, userPersona: selectedPersona, companyName: user.companyName, subscriptionActive: user.subscriptionActive, phoneMasked: user.phoneMasked, phoneVerified: user.phoneVerified, subscriptionStatus: user.subscriptionStatus, subscriptionExpiresAt: user.subscriptionExpiresAt });
       onClose();
@@ -229,8 +230,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               {mode === 'forgot' && <div><h3 className="font-bold text-white">Reset your password</h3><p className="text-xs text-slate-400 mt-1">Enter your account email and we’ll send a secure reset link.</p></div>}
               {mode === 'reset' && <div><h3 className="font-bold text-white">Choose a new password</h3><p className="text-xs text-slate-400 mt-1">Use at least 8 characters and do not reuse an old password.</p></div>}
               {mode === 'register' && <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-300">Full Name</label>
-                <input required type="text" minLength={2} placeholder="Your full name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-xs font-semibold text-slate-300">First name
+                    <input required type="text" minLength={2} autoComplete="given-name" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="mt-1 w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
+                  </label>
+                  <label className="text-xs font-semibold text-slate-300">Surname
+                    <input required type="text" minLength={2} autoComplete="family-name" placeholder="Surname" value={surname} onChange={(e) => setSurname(e.target.value)} className="mt-1 w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500" />
+                  </label>
+                </div>
               </div>}
               {mode === 'register' && <div className="space-y-2">
                 <label className="text-xs font-semibold text-slate-300">How should we verify you?</label>
@@ -276,8 +283,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
               {mode === 'register' && <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-300">South African mobile number</label>
-                <input type="tel" placeholder="063 791 1099" value={phone} disabled={Boolean(smsChallengeId)} required onChange={(e) => setPhone(e.target.value)} className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500 disabled:opacity-60" />
-                <p className="text-[11px] text-slate-500">Required for alerts. We will attempt SMS verification; if SMS is unavailable, verify your account by email and verify the mobile later.</p>
+                <input type="tel" placeholder="063 791 1099" value={phone} disabled={Boolean(smsChallengeId)} required={verificationMethod === 'sms'} onChange={(e) => setPhone(e.target.value)} className="w-full bg-slate-950 text-slate-200 text-xs px-3.5 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500 disabled:opacity-60" />
+                <p className="text-[11px] text-slate-500">{verificationMethod === 'sms' ? 'Required for SMS verification.' : 'Optional for email verification. You can verify a mobile number later.'}</p>
               </div>}
               {mode === 'register' && verificationMethod === 'sms' && smsChallengeId && <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-300">Six-digit SMS code</label>
