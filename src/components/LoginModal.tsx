@@ -59,6 +59,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [verificationMethod, setVerificationMethod] = useState<'email' | 'sms'>('email');
   const [phone, setPhone] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [smsCode, setSmsCode] = useState('');
   const [smsChallengeId, setSmsChallengeId] = useState('');
   const demoEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true';

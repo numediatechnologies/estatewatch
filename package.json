@@ -10,6 +10,7 @@
     "dev": "concurrently \"npm run server\" \"vite --host 0.0.0.0 --port 3000\"",
     "server": "tsx server/index.ts",
     "db:init": "tsx server/initDb.ts",
+    "db:migrate": "node scripts/run-migrations.mjs",
     "build": "tsc && vite build && tsx scripts/generate-seo-pages.ts",
     "lint": "tsc --noEmit",
     "test": "vitest run",
