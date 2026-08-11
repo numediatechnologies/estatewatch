@@ -48,6 +48,7 @@ export interface AlertCriteria {
   executorStatus?: string[];
   channels: string[];
   isActive: boolean;
+  deliveryState?: 'active' | 'paused';
   matchCount: number;
   lastTriggered?: string;
   createdAt: string;

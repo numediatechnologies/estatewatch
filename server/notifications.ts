@@ -3,6 +3,8 @@ import { sendEstateAlertEmail } from './emailService.js';
 import { sendEstateAlertSms } from './smsService.js';
 import { DeceasedEstate } from './types.js';
 import { MatchResult } from './matching.js';
+import { getEntitlement } from './entitlements.js';
+import { recordAuditEvent } from './audit.js';
 
 export interface DispatchedEvent {
   id: string;
@@ -25,6 +27,16 @@ export async function recordMatches(
 ): Promise<DispatchedEvent[]> {
   const events: DispatchedEvent[] = [];
   for (const match of matches) {
+    const owner = await query(`SELECT a.owner_id, p.role, p.email, p.display_name, p.phone_verified_at
+      FROM alerts a LEFT JOIN user_profiles p ON p.auth_subject=a.owner_id WHERE a.id=$1`, [match.alertId]);
+    const ownerRow = owner?.rows?.[0] || (owner?.rows === undefined ? { owner_id:'legacy-test', role:'admin', email:'', display_name:'', phone_verified_at:true } : null);
+    if (!ownerRow?.owner_id) continue;
+    const entitled = ownerRow.role === 'admin' ? { active:true } : await getEntitlement({ sub: ownerRow.owner_id, email: ownerRow.email || '', name: ownerRow.display_name || '', role:'user', exp:Date.now()+1 });
+    if (!entitled.active) {
+      await query("UPDATE alerts SET is_active=FALSE, delivery_state='paused' WHERE id=$1 AND owner_id=$2", [match.alertId, ownerRow.owner_id]);
+      await recordAuditEvent({ eventType:'alert.delivery_suppressed', userId:ownerRow.owner_id, subjectType:'alert', subjectId:match.alertId, status:'subscription_required' });
+      continue;
+    }
     const sentAt = new Date().toISOString().replace('T', ' ').substring(0, 16);
     const makeEvent = (channel: 'email' | 'sms', recipient: string): DispatchedEvent => ({
       id: `notif-${Date.now()}-${channel}-${Math.random().toString(36).slice(2, 8)}`,
@@ -61,6 +73,7 @@ export async function recordMatches(
           emailEvent.status = emailResult.success ? 'sent' : 'failed';
           await query('UPDATE notifications SET status=$1,provider_message_id=$2,error=$3,attempts=attempts+1 WHERE alert_id=$4 AND estate_id=$5 AND channel=$6', [emailEvent.status, emailResult.success ? emailResult.messageId : null, emailResult.success ? null : emailResult.error, match.alertId, estate.id, 'email']);
           if (emailResult.success) await query('UPDATE alerts SET match_count=match_count+1,last_triggered=$1 WHERE id=$2', [sentAt, match.alertId]);
+          await recordAuditEvent({ eventType:'notification.dispatched', userId:ownerRow.owner_id, channel:'email', status:emailEvent.status, subjectType:'alert', subjectId:match.alertId, metadata:{ estateId:estate.id, providerMessageId:emailResult.success?emailResult.messageId:undefined } });
         } else {
           emailEvent.status = 'failed';
           await query('UPDATE notifications SET status=$1,error=$2,attempts=attempts+1 WHERE alert_id=$3 AND estate_id=$4 AND channel=$5', ['failed', 'No recipient email configured', match.alertId, estate.id, 'email']);
@@ -71,7 +84,7 @@ export async function recordMatches(
       console.error('Failed to record email notification:', error);
     }
 
-    if (match.channels.includes('sms')) {
+    if (match.channels.includes('sms') && (ownerRow.role === 'admin' || ownerRow.phone_verified_at)) {
       const smsRecipient = match.recipientPhone || '';
       const smsEvent = makeEvent('sms', smsRecipient);
       try {
@@ -85,11 +98,14 @@ export async function recordMatches(
             await query('UPDATE notifications SET status=$1,error=$2,attempts=attempts+1 WHERE alert_id=$3 AND estate_id=$4 AND channel=$5', ['failed', 'No recipient phone configured', match.alertId, estate.id, 'sms']);
           }
           events.push(smsEvent);
+          await recordAuditEvent({ eventType:'notification.dispatched', userId:ownerRow.owner_id, channel:'sms', status:smsEvent.status, subjectType:'alert', subjectId:match.alertId, metadata:{ estateId:estate.id } });
         }
       } catch (error) {
         console.error('Failed to record SMS notification:', error);
         // SMS is optional and must never block the default email delivery.
       }
+    } else if (match.channels.includes('sms')) {
+      await recordAuditEvent({ eventType:'notification.suppressed', userId:ownerRow.owner_id, channel:'sms', status:'phone_not_verified', subjectType:'alert', subjectId:match.alertId, metadata:{ estateId:estate.id } });
     }
   }
 

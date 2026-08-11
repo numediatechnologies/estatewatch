@@ -89,7 +89,7 @@ async function processGazette(gazette: GazetteItem, result: IngestResult) {
 }
 
 async function loadAlerts(): Promise<AlertCriteria[]> {
-  const rows = (await query('SELECT * FROM alerts WHERE is_active=TRUE')).rows;
+  const rows = (await query("SELECT * FROM alerts WHERE is_active=TRUE AND delivery_state='active' AND owner_id IS NOT NULL")).rows;
   return rows.map((row: any) => ({ id: row.id, name: row.name, surnameMatch: row.surname_match || undefined, idNumberHash: row.id_number_hash || undefined, idNumberMatchMasked: row.id_number_match_masked || undefined, provinces: row.provinces || [], districts: row.districts || [], valueBands: row.value_bands || [], assetTypes: row.asset_types || [], executorStatus: row.executor_status || [], channels: row.channels || [], isActive: row.is_active, matchCount: row.match_count, createdAt: row.created_at, recipientEmail: row.recipient_email, recipientPhone: row.recipient_phone, ownerName: row.owner_name }));
 }
 

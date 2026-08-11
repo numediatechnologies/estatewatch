@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CreditCard, Check, Sparkles, ShieldCheck, Zap, Download } from 'lucide-react';
 
-export const BillingView: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => {
+export const BillingView: React.FC<{ isAdmin?: boolean; subscriptionActive?: boolean; subscriptionStatus?: string; subscriptionExpiresAt?: string | null }> = ({ isAdmin = false, subscriptionActive = false, subscriptionStatus = 'inactive', subscriptionExpiresAt }) => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [currentPlan, setCurrentPlan] = useState<'pro' | 'agency' | 'free'>('pro');
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -32,11 +32,11 @@ export const BillingView: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }
               Subscription & Pricing Plans
             </h2>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-400 font-bold border border-emerald-800">
-              Active Plan: PRO TIER
+              {subscriptionActive ? 'Subscription active' : `Subscription ${subscriptionStatus}`}
             </span>
           </div>
           <p className="text-xs text-slate-400">
-            Transparent South African ZAR pricing. Cancel or upgrade anytime via PayFast on tenders.marketdirect.co.za.
+            {subscriptionActive ? `Alert delivery is enabled${subscriptionExpiresAt ? ` until ${new Date(subscriptionExpiresAt).toLocaleDateString()}` : ''}.` : 'Your saved alerts remain paused until an administrator activates your subscription.'}
           </p>
         </div>
 

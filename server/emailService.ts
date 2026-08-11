@@ -146,3 +146,65 @@ export async function sendContactMessage(params: { name: string; company?: strin
     text,
   });
 }
+
+export interface ContactMessageParams {
+  name: string;
+  company?: string;
+  email: string;
+  phone?: string;
+  enquiry: string;
+  message: string;
+}
+
+export async function sendContactMessage(params: ContactMessageParams) {
+  const to = process.env.ADMIN_EMAIL || 'support@marketdirect.co.za';
+  if (!process.env.RESEND_API_KEY) return { success: false, error: 'RESEND_API_KEY not configured' };
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const subject = `[EstateWatch Contact] ${escapeHtml(params.enquiry)} from ${escapeHtml(params.name)}`;
+  const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;padding:24px;color:#0f172a">
+    <h2>New contact message</h2>
+    <table style="border-collapse:collapse;width:100%;max-width:600px">
+      <tr><td style="padding:8px 0;color:#64748b;width:30%">Name</td><td style="padding:8px 0;font-weight:600">${escapeHtml(params.name)}</td></tr>
+      <tr><td style="padding:8px 0;color:#64748b">Company</td><td style="padding:8px 0">${escapeHtml(params.company || '—')}</td></tr>
+      <tr><td style="padding:8px 0;color:#64748b">Email</td><td style="padding:8px 0">${escapeHtml(params.email)}</td></tr>
+      <tr><td style="padding:8px 0;color:#64748b">Phone</td><td style="padding:8px 0">${escapeHtml(params.phone || '—')}</td></tr>
+      <tr><td style="padding:8px 0;color:#64748b">Enquiry</td><td style="padding:8px 0">${escapeHtml(params.enquiry)}</td></tr>
+      <tr><td style="padding:8px 0;color:#64748b;vertical-align:top">Message</td><td style="padding:8px 0;white-space:pre-line">${escapeHtml(params.message)}</td></tr>
+    </table>
+  </body></html>`;
+  const text = `Name: ${params.name}
+Company: ${params.company || '—'}
+Email: ${params.email}
+Phone: ${params.phone || '—'}
+Enquiry: ${params.enquiry}
+
+${params.message}`;
+  const { data, error } = await resend.emails.send({
+    from: process.env.RESEND_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>',
+    to: [to],
+    replyTo: params.email,
+    subject,
+    html,
+    text,
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: true, messageId: data?.id };
+}
+
+export async function sendTestEmail(to: string) {
+  if (!process.env.RESEND_API_KEY) return { success: false, error: 'RESEND_API_KEY not configured' };
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { data, error } = await resend.emails.send({
+    from: process.env.RESEND_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>',
+    to: [to],
+    subject: '[EstateWatch] Email delivery test',
+    html: `<!doctype html><html><body style="font-family:Arial,sans-serif;padding:24px;color:#0f172a"><h2>Email delivery test</h2><p>This is a test email from EstateWatch confirming that email delivery is configured correctly.</p><p style="color:#64748b;font-size:13px">Sent at ${new Date().toISOString()}</p></body></html>`,
+    text: `EstateWatch email delivery test
+
+This confirms that email delivery is configured correctly.
+
+Sent at ${new Date().toISOString()}`,
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: true, messageId: data?.id, recipient: to };
+}

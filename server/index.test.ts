@@ -49,7 +49,7 @@ describe('Firecrawl API', () => {
     process.env.AUTH_SESSION_SECRET = 'application-session-test-secret';
     const discover = vi.fn().mockResolvedValue(discovery);
     const app = createApp({ discover, createClient: () => ({}) as FirecrawlDiscoveryClient, ingest: vi.fn() });
-    const adminToken = createSessionToken({ sub: 'admin-1', email: 'support@marketdirecto.co.za', name: 'Support', role: 'admin' });
+    const adminToken = createSessionToken({ sub: 'admin-1', email: 'support@marketdirect.co.za', name: 'Support', role: 'admin' });
     const userToken = createSessionToken({ sub: 'user-1', email: 'user@example.com', name: 'User', role: 'user' });
     expect((await request(app).post('/api/run-fetch').set('Cookie', `estatewatch_session=${adminToken}`)).status).toBe(200);
     expect((await request(app).post('/api/run-fetch').set('Cookie', `estatewatch_session=${userToken}`)).status).toBe(401);

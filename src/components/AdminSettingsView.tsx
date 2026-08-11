@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Mail, Save, Settings, ShieldCheck, Send } from 'lucide-react';
 import { AdminSettings, fetchAdminSettings, sendAdminTestEmail, updateAdminSettings } from '../services/api';
+import { AdminEntitlementsView } from './AdminEntitlementsView';
 
 export const AdminSettingsView: React.FC = () => {
   const [settings, setSettings] = useState<AdminSettings | null>(null);
@@ -82,5 +83,6 @@ export const AdminSettingsView: React.FC = () => {
     </div>
     {message && <p role="status" className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />{message}</p>}
     {error && <p role="alert" className="text-xs text-rose-400 font-semibold flex items-center gap-1.5"><Mail className="w-4 h-4" />{error}</p>}
+    <AdminEntitlementsView />
   </div>;
 };

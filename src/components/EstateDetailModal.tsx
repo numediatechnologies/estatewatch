@@ -43,6 +43,7 @@ export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
   const [showEmailModal, setShowEmailModal] = React.useState(false);
   const [sourceError, setSourceError] = React.useState('');
   const [openingSource, setOpeningSource] = React.useState(false);
+  const isPreview = !estate.executorName && !estate.rawNoticeSnippet;
 
   const handleViewOriginal = async () => {
     setSourceError(''); setOpeningSource(true);
@@ -126,9 +127,7 @@ export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
                 Gazetted: {estate.gazetteDate}
               </span>
             </div>
-            <p className="text-xs font-mono text-slate-300 bg-slate-900 p-3 rounded-lg border border-slate-800 leading-relaxed italic">
-              "{estate.rawNoticeSnippet}"
-            </p>
+            {isPreview ? <p className="text-xs text-slate-400 bg-slate-900 p-3 rounded-lg border border-slate-800">This is a safe preview. Sign in with an active subscription to view the full notice record and contact details.</p> : <p className="text-xs font-mono text-slate-300 bg-slate-900 p-3 rounded-lg border border-slate-800 leading-relaxed italic">"{estate.rawNoticeSnippet}"</p>}
             {canViewOriginal ? <button onClick={handleViewOriginal} disabled={openingSource} className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 disabled:opacity-60"><ExternalLink className="w-3.5 h-3.5" />{openingSource ? 'Opening…' : 'View Original Gazette PDF'}</button> : <div className="rounded-lg border border-slate-700 bg-slate-900 p-3 text-xs text-slate-400"><ShieldAlert className="inline w-4 h-4 mr-1.5 text-amber-400" />{isSignedIn ? 'Original Gazette PDFs are available with an active subscription.' : 'Sign in with an active subscription to view the original Gazette PDF.'} {isSignedIn && <button onClick={onViewPlans} className="ml-1 font-bold text-amber-400 hover:underline">View Plans</button>}</div>}
             {sourceError && <p role="alert" className="text-xs text-rose-400">{sourceError}</p>}
           </div>
@@ -147,7 +146,7 @@ export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
           )}
 
           {/* Executor / Legal Contact */}
-          <div className="bg-slate-950/60 border border-slate-800 p-4 rounded-xl space-y-3">
+          {!isPreview && <div className="bg-slate-950/60 border border-slate-800 p-4 rounded-xl space-y-3">
             <h4 className="text-xs font-bold text-slate-300">
               Appointed Executor / Attorney Details
             </h4>
@@ -164,7 +163,7 @@ export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
                 </a>
               </div>
             </div>
-          </div>
+          </div>}
 
           {/* Add to Pipeline CRM Box */}
           <div className="bg-slate-800/60 border border-slate-700/80 p-4 rounded-xl space-y-3">

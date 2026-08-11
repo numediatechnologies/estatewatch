@@ -58,8 +58,8 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
     setIdNumberMatch('');
     setSelectedProvinces(alert.provinces);
     setRecipientEmail(alert.recipientEmail || defaultRecipientEmail);
-    setSmsEnabled(alert.channels.includes('sms'));
-    setRecipientPhone(alert.recipientPhone || '');
+    setSmsEnabled(alert.channels.includes('sms') && Boolean(alert.recipientPhone && !alert.recipientPhone.startsWith('***')));
+    setRecipientPhone(alert.recipientPhone?.startsWith('***') ? '' : (alert.recipientPhone || ''));
     setError('');
   };
 
@@ -185,7 +185,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
             <div className="flex items-center gap-1"><Mail className="w-3 h-3" /><span>{alert.recipientEmail || 'Recipient not configured'}</span></div>
             {alert.channels.includes('sms') && <div className="flex items-center gap-1"><Smartphone className="w-3 h-3" /><span>{alert.recipientPhone || 'SMS number not configured'}</span></div>}
           </div>
-          <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[10px] text-slate-500"><span>Matches: <strong className="text-white">{alert.matchCount}</strong></span><div className="flex items-center gap-2"><button onClick={() => startEditing(alert)} title="Edit alert" className="p-1 hover:text-amber-400"><Edit3 className="w-3.5 h-3.5" /></button><button onClick={() => void handleDelete(alert)} title="Delete alert" className="p-1 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button></div></div>
+          <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[10px] text-slate-500"><span>Matches: <strong className="text-white">{alert.matchCount}</strong>{alert.deliveryState === 'paused' && <strong className="ml-2 text-amber-400">Paused — subscription required</strong>}</span><div className="flex items-center gap-2"><button onClick={() => startEditing(alert)} title="Edit alert" className="p-1 hover:text-amber-400"><Edit3 className="w-3.5 h-3.5" /></button><button onClick={() => void handleDelete(alert)} title="Delete alert" className="p-1 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button></div></div>
         </div>)}
       </div>
     </div>

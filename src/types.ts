@@ -58,6 +58,7 @@ export interface AlertCriteria {
   executorStatus?: ExecutorStatus[];
   channels: NotificationChannel[];
   isActive: boolean;
+  deliveryState?: 'active' | 'paused';
   matchCount: number;
   lastTriggered?: string;
   createdAt: string;
@@ -165,6 +166,10 @@ export interface UserAccount {
   avatarUrl?: string;
   subscriptionActive?: boolean;
   companyName?: string;
+  phoneMasked?: string;
+  phoneVerified?: boolean;
+  subscriptionStatus?: string;
+  subscriptionExpiresAt?: string | null;
 }
 
 export interface ScraperPipelineResult {

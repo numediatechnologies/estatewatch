@@ -10,6 +10,8 @@ export interface AdminSettings {
   emailProvider: string;
   neonAuthConfigured: boolean;
 }
+export interface AdminSubscriptionUser { id:string; email:string; name?:string; role:string; phoneMasked?:string|null; phoneVerified:boolean; subscriptionStatus:string; subscriptionExpiresAt?:string|null; createdAt?:string; }
+export interface AuditEvent { id:string; event_type:string; actor_email?:string; user_id?:string; channel?:string; status?:string; subject_type?:string; subject_id?:string; metadata?:Record<string,unknown>; created_at:string; }
 
 const API_BASE = '/api';
 const apiFetch: typeof fetch = (input, init = {}) => fetch(input, { ...init, credentials: 'include' });
@@ -56,6 +58,9 @@ export async function sendAdminTestEmail(to: string): Promise<{ success: boolean
     return { success: false, error: 'The test email request failed.' };
   }
 }
+export async function fetchAdminSubscriptions(): Promise<AdminSubscriptionUser[] | null> { try { const res=await apiFetch(`${API_BASE}/admin/subscriptions`); if(!res.ok)throw new Error('Failed to load subscriptions'); return await res.json(); } catch(err){ console.error(err); return null; } }
+export async function updateAdminSubscription(id:string, status:string, expiresAt?:string): Promise<boolean> { try { const res=await apiFetch(`${API_BASE}/admin/subscriptions/${encodeURIComponent(id)}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,expiresAt:expiresAt||null})}); return res.ok; } catch(err){console.error(err);return false;} }
+export async function fetchAdminAudit(): Promise<AuditEvent[] | null> { try { const res=await apiFetch(`${API_BASE}/admin/audit?limit=300`); if(!res.ok)throw new Error('Failed to load audit history'); return await res.json(); } catch(err){console.error(err);return null;} }
 
 export async function fetchEstates(): Promise<DeceasedEstate[] | null> {
   try {
