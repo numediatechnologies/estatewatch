@@ -35,14 +35,13 @@ export interface AppSession {
 
 type AuthTransport = (url: string, body: object, origin: string) => Promise<{ status: number; data: any }>;
 
-const postAuthJson: AuthTransport = (url, body, origin) => new Promise((resolve, reject) => {
+const postAuthJson: AuthTransport = (url, body, _origin) => new Promise((resolve, reject) => {
   const payload = JSON.stringify(body);
   const request = httpsRequest(url, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       'content-length': Buffer.byteLength(payload),
-      origin,
     },
   }, (response) => {
     let responseBody = '';
