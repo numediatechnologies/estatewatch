@@ -4,8 +4,20 @@ import type { Request, Response } from 'express';
 import { query } from './db.js';
 
 const COOKIE_NAME = 'estatewatch_session';
+const DEFAULT_APP_URL = 'https://estatewatch-ivory.vercel.app';
 const adminEmail = () => (process.env.ADMIN_EMAIL || 'support@marketdirect.co.za').toLowerCase();
 export const roleForEmail = (email: string): AppSession['role'] => email.toLowerCase() === adminEmail() ? 'admin' : 'user';
+
+export function applicationUrl() {
+  const configured = String(process.env.APP_URL || '').trim();
+  try {
+    const url = new URL(configured || DEFAULT_APP_URL);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Unsupported application URL protocol');
+    return url.origin;
+  } catch {
+    return DEFAULT_APP_URL;
+  }
+}
 
 export interface AppSession {
   sub: string;
@@ -50,7 +62,7 @@ const postAuthJson: AuthTransport = (url, body, origin) => new Promise((resolve,
 async function callNeonAuth(path: string, body: object, transport: AuthTransport = postAuthJson) {
   const baseUrl = process.env.NEON_AUTH_BASE_URL?.replace(/\/$/, '');
   if (!baseUrl) throw new Error('NEON_AUTH_BASE_URL is required');
-  const origin = new URL(process.env.APP_URL || 'http://localhost:3000').origin;
+  const origin = applicationUrl();
   const response = await transport(`${baseUrl}/${path}`, body, origin);
   if (response.status < 200 || response.status >= 300) {
     throw Object.assign(new Error(response.data.message || response.data.error || 'Authentication failed'), { status: response.status });
@@ -101,7 +113,7 @@ export function clearSessionCookie(res: Response) {
 }
 
 export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string; firstName?: string; surname?: string; companyName?: string; phone?: string }, transport: AuthTransport = postAuthJson) {
-  const requestBody = mode === 'sign-up' ? { ...body, callbackURL: process.env.APP_URL || '/' } : body;
+  const requestBody = mode === 'sign-up' ? { ...body, callbackURL: `${applicationUrl()}/` } : body;
   const result = await callNeonAuth(`${mode}/email`, requestBody, transport);
   const user = result.user;
   if (!user?.id || !user?.email) throw new Error(mode === 'sign-up' ? 'Check your email to verify the new account before signing in.' : 'Neon did not return a verified user.');
