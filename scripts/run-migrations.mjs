@@ -11,8 +11,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 
-dotenv.config({ path: '.env.local' });
+// Load .env first (contains real credentials), then .env.local (may override for local dev)
+// Use override:false so blank .env.local values cannot clobber real .env values
 dotenv.config();
+dotenv.config({ path: '.env.local', override: false });
 
 const { Pool } = pg;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -81,6 +83,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Migration runner failed:', err.message);
+  console.error('Migration runner failed:', err);
   process.exit(1);
 });
