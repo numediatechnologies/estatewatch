@@ -8,8 +8,10 @@ export interface AdminSettings {
   resendConfigured: boolean;
   zeptomailConfigured: boolean;
   emailProvider: string;
+  incidentRecipientConfigured?: boolean;
   neonAuthConfigured: boolean;
 }
+export interface OperationalIncident { id:string; incident_type:string; severity:string; status:string; summary:string; detail:string; alert_id?:string|null; estate_id?:string|null; notification_id?:string|null; ingestion_id?:string|null; provider?:string|null; provider_attempts?:Array<{provider:string;success:boolean;error?:string}>; email_status?:string|null; occurrence_count:number; last_occurred_at:string; resolved_at?:string|null; }
 export interface AdminSubscriptionUser { id:string; email:string; name?:string; role:string; phoneMasked?:string|null; phoneVerified:boolean; subscriptionStatus:string; subscriptionExpiresAt?:string|null; createdAt?:string; }
 export interface AuditEvent { id:string; event_type:string; actor_email?:string; user_id?:string; channel?:string; status?:string; subject_type?:string; subject_id?:string; metadata?:Record<string,unknown>; created_at:string; }
 
@@ -49,7 +51,7 @@ export async function updateAdminSettings(settings: Pick<AdminSettings, 'legalCo
   }
 }
 
-export async function sendAdminTestEmail(to: string): Promise<{ success: boolean; error?: string; messageId?: string }> {
+export async function sendAdminTestEmail(to: string): Promise<{ success: boolean; error?: string; messageId?: string; provider?: string; attempts?: Array<{ provider: string; success: boolean; error?: string }> }> {
   try {
     const res = await apiFetch(`${API_BASE}/admin/settings/test-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to }) });
     return await res.json();
@@ -58,6 +60,8 @@ export async function sendAdminTestEmail(to: string): Promise<{ success: boolean
     return { success: false, error: 'The test email request failed.' };
   }
 }
+export async function fetchAdminIncidents(): Promise<OperationalIncident[] | null> { try { const res=await apiFetch(`${API_BASE}/admin/incidents?limit=100`); if(!res.ok)throw new Error('Failed to load incidents'); return await res.json(); } catch(err){ console.error(err); return null; } }
+export async function resolveAdminIncident(id:string): Promise<boolean> { try { const res=await apiFetch(`${API_BASE}/admin/incidents/${encodeURIComponent(id)}/resolve`,{method:'PATCH'}); return res.ok; } catch(err){ console.error(err); return false; } }
 export async function fetchAdminSubscriptions(): Promise<AdminSubscriptionUser[] | null> { try { const res=await apiFetch(`${API_BASE}/admin/subscriptions`); if(!res.ok)throw new Error('Failed to load subscriptions'); return await res.json(); } catch(err){ console.error(err); return null; } }
 export async function updateAdminSubscription(id:string, status:string, expiresAt?:string): Promise<boolean> { try { const res=await apiFetch(`${API_BASE}/admin/subscriptions/${encodeURIComponent(id)}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,expiresAt:expiresAt||null})}); return res.ok; } catch(err){console.error(err);return false;} }
 export async function fetchAdminAudit(): Promise<AuditEvent[] | null> { try { const res=await apiFetch(`${API_BASE}/admin/audit?limit=300`); if(!res.ok)throw new Error('Failed to load audit history'); return await res.json(); } catch(err){console.error(err);return null;} }

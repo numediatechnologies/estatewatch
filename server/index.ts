@@ -13,7 +13,8 @@ import { initializeDatabase } from './initDb.js';
 import { authenticateWithNeon, clearSessionCookie, createSessionToken, readSession, requestPasswordResetWithNeon, resetPasswordWithNeon, setSessionCookie } from './auth.js';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { normalizeSmsRecipient, sendVerificationSms } from './smsService.js';
-import { sendContactMessage, sendIngestionFailureEmail, sendTestEmail } from './emailService.js';
+import { sendContactMessage, sendTestEmail } from './emailService.js';
+import { listOperationalIncidents, notifyAdminOfIncident, resolveOperationalIncident } from './operationalIncidents.js';
 import { buildMarketDirectContactPayload, sendContactToMarketDirectCrm } from './leadCrmService.js';
 import { ALLOWED_CONTACT_ENQUIRIES, applySecurityHeaders, CONTACT_FIELD_LIMITS, consumeContactRateLimit } from './security.js';
 import { recordAuditEvent, maskedPhone } from './audit.js';
@@ -240,6 +241,7 @@ application.get('/api/admin/settings', requireAdmin, async (_req, res) => {
       resendConfigured: Boolean(process.env.RESEND_API_KEY),
       zeptomailConfigured: Boolean(process.env.ZEPTOMAIL_TOKEN),
       emailProvider: process.env.EMAIL_PROVIDER || 'auto',
+      incidentRecipientConfigured: Boolean(process.env.INGESTION_INCIDENT_EMAIL || process.env.ADMIN_EMAIL),
       neonAuthConfigured: Boolean(process.env.NEON_AUTH_BASE_URL),
     });
   } catch (error: any) { res.status(500).json({ error: error.message }); }
@@ -256,7 +258,7 @@ application.patch('/api/admin/settings', requireAdmin, async (req, res) => {
     for (const [key, value] of [['legalCompanyName', legalCompanyName], ['tradingName', tradingName], ['notificationEmail', notificationEmail]]) {
       await query(`INSERT INTO app_settings(setting_key, setting_value, updated_at) VALUES($1,$2,NOW()) ON CONFLICT(setting_key) DO UPDATE SET setting_value=EXCLUDED.setting_value, updated_at=NOW()`, [key, value]);
     }
-    res.json({ legalCompanyName, tradingName, notificationEmail, adminEmail: process.env.ADMIN_EMAIL || '', resendConfigured: Boolean(process.env.RESEND_API_KEY), zeptomailConfigured: Boolean(process.env.ZEPTOMAIL_TOKEN), emailProvider: process.env.EMAIL_PROVIDER || 'auto', neonAuthConfigured: Boolean(process.env.NEON_AUTH_BASE_URL) });
+    res.json({ legalCompanyName, tradingName, notificationEmail, adminEmail: process.env.ADMIN_EMAIL || '', resendConfigured: Boolean(process.env.RESEND_API_KEY), zeptomailConfigured: Boolean(process.env.ZEPTOMAIL_TOKEN), emailProvider: process.env.EMAIL_PROVIDER || 'auto', incidentRecipientConfigured: Boolean(process.env.INGESTION_INCIDENT_EMAIL || process.env.ADMIN_EMAIL), neonAuthConfigured: Boolean(process.env.NEON_AUTH_BASE_URL) });
   } catch (error: any) { res.status(500).json({ error: error.message }); }
 });
 application.post('/api/admin/settings/test-email', requireAdmin, async (req, res) => {
@@ -265,18 +267,29 @@ application.post('/api/admin/settings/test-email', requireAdmin, async (req, res
   const result = await sendTestEmail(to);
   res.status(result.success ? 200 : 502).json(result);
 });
+application.get('/api/admin/incidents', requireAdmin, async (req, res) => {
+  try { res.json(await listOperationalIncidents(Number(req.query.limit) || 100)); }
+  catch (error: any) { res.status(500).json({ error: error.message }); }
+});
+application.patch('/api/admin/incidents/:id/resolve', requireAdmin, async (req, res) => {
+  try {
+    const incident = await resolveOperationalIncident(String(req.params.id));
+    if (!incident) return res.status(404).json({ error: 'Incident not found' });
+    res.json(incident);
+  } catch (error: any) { res.status(500).json({ error: error.message }); }
+});
 application.get('/api/cron/ingest', requireCron, async (_req, res) => {
   try {
     const result = await dependencies.ingest();
     if (result.status !== 'completed') {
       const detail = result.errors.map((entry) => `${entry.url}: ${entry.error}`).join('; ') || 'Ingestion was flagged without an error detail';
-      const incident = await sendIngestionFailureEmail(detail).catch((error) => ({ success: false, error: error.message }));
-      return res.status(502).json({ success: false, data: result, incident: { operatorNotified: incident.success } });
+      const incident = await notifyAdminOfIncident({ type: 'cron_failure', severity: 'high', summary: 'Scheduled Gazette ingestion failed', detail, ingestionId: result.ingestionId, dedupeKey: `cron:${result.ingestionId}:${detail}` });
+      return res.status(502).json({ success: false, data: result, incident: { id: incident.incident?.id, operatorNotified: incident.email.success, provider: incident.email.success ? incident.email.provider : undefined, attempts: incident.email.attempts || [] } });
     }
     res.status(200).json({ success: true, data: result });
   } catch (error: any) {
-    await sendIngestionFailureEmail(error.message).catch(() => undefined);
-    res.status(500).json({ success: false, error: error.message });
+    const incident = await notifyAdminOfIncident({ type: 'cron_failure', severity: 'critical', summary: 'Scheduled Gazette ingestion crashed', detail: error.message || String(error), dedupeKey: `cron-crash:${error.message || String(error)}` });
+    res.status(500).json({ success: false, error: error.message, incident: { id: incident.incident?.id, operatorNotified: incident.email.success, provider: incident.email.success ? incident.email.provider : undefined, attempts: incident.email.attempts || [] } });
   }
 });
 

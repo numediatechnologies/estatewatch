@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Mail, Save, Settings, ShieldCheck, Send } from 'lucide-react';
 import { AdminSettings, fetchAdminSettings, sendAdminTestEmail, updateAdminSettings } from '../services/api';
 import { AdminEntitlementsView } from './AdminEntitlementsView';
+import { AdminOperationalIncidentsView } from './AdminOperationalIncidentsView';
 
 export const AdminSettingsView: React.FC = () => {
   const [settings, setSettings] = useState<AdminSettings | null>(null);
@@ -38,7 +39,7 @@ export const AdminSettingsView: React.FC = () => {
     setError(''); setMessage('');
     const result = await sendAdminTestEmail(testEmail);
     if (!result.success) return setError(result.error || 'Test email was not sent.');
-    setMessage(`Test email sent to ${testEmail}. Check inbox and spam folders.`);
+    setMessage(`Test email sent to ${testEmail} via ${result.provider || 'configured provider'}. Check inbox and spam folders.`);
   };
 
   return <div className="space-y-6">
@@ -70,6 +71,7 @@ export const AdminSettingsView: React.FC = () => {
           <div className="flex items-center justify-between"><span className="text-slate-400">Resend configured</span><span className={settings?.resendConfigured ? 'text-emerald-400' : 'text-rose-400'}>{settings?.resendConfigured ? 'Yes' : 'No'}</span></div>
           <div className="flex items-center justify-between"><span className="text-slate-400">ZeptoMail configured</span><span className={settings?.zeptomailConfigured ? 'text-emerald-400' : 'text-rose-400'}>{settings?.zeptomailConfigured ? 'Yes' : 'No'}</span></div>
           <div className="flex items-center justify-between"><span className="text-slate-400">Provider mode</span><span className="text-slate-200">{settings?.emailProvider || 'auto'}</span></div>
+          <div className="flex items-center justify-between"><span className="text-slate-400">Admin incident recipient</span><span className={settings?.incidentRecipientConfigured ? 'text-emerald-400' : 'text-rose-400'}>{settings?.incidentRecipientConfigured ? 'Configured' : 'Missing'}</span></div>
           <div className="flex items-center justify-between"><span className="text-slate-400">Admin login email</span><span className="text-slate-200">{settings?.adminEmail || 'Not configured'}</span></div>
         </div>
         <div className="border-t border-slate-800 pt-4 space-y-2">
@@ -78,11 +80,12 @@ export const AdminSettingsView: React.FC = () => {
           </label>
           <button type="button" onClick={() => void sendTest()} className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 flex items-center gap-2"><Send className="w-4 h-4 text-amber-400" />Send test email</button>
         </div>
-          <div className="text-[11px] text-slate-500 flex items-start gap-2"><ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />These providers are for transactional EstateWatch email only. Registration, verification, and password-reset emails are handled separately by Neon Auth.</div>
+          <div className="text-[11px] text-slate-500 flex items-start gap-2"><ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />Auto mode tries Resend first and uses ZeptoMail (Zoho) only if Resend fails; it does not intentionally send duplicate copies. Registration, verification, and password-reset emails are handled separately by Neon Auth.</div>
       </div>
     </div>
     {message && <p role="status" className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />{message}</p>}
     {error && <p role="alert" className="text-xs text-rose-400 font-semibold flex items-center gap-1.5"><Mail className="w-4 h-4" />{error}</p>}
+    <AdminOperationalIncidentsView />
     <AdminEntitlementsView />
   </div>;
 };

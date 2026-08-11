@@ -5,6 +5,7 @@ import { DeceasedEstate } from './types.js';
 import { MatchResult } from './matching.js';
 import { getEntitlement } from './entitlements.js';
 import { recordAuditEvent } from './audit.js';
+import { recordOperationalIncident } from './operationalIncidents.js';
 
 export interface DispatchedEvent {
   id: string;
@@ -73,6 +74,11 @@ export async function recordMatches(
           emailEvent.status = emailResult.success ? 'sent' : 'failed';
           await query('UPDATE notifications SET status=$1,provider_message_id=$2,error=$3,attempts=attempts+1 WHERE alert_id=$4 AND estate_id=$5 AND channel=$6', [emailEvent.status, emailResult.success ? emailResult.messageId : null, emailResult.success ? null : emailResult.error, match.alertId, estate.id, 'email']);
           if (emailResult.success) await query('UPDATE alerts SET match_count=match_count+1,last_triggered=$1 WHERE id=$2', [sentAt, match.alertId]);
+          if (!emailResult.success) await recordOperationalIncident({
+            type: 'alert_delivery_failure', severity: 'high', summary: `Email alert failed for ${match.alertName}`,
+            detail: emailResult.error, alertId: match.alertId, estateId: estate.id, notificationId: emailEvent.id,
+            providerAttempts: emailResult.attempts, dedupeKey: `alert-email:${match.alertId}:${estate.id}`,
+          });
           await recordAuditEvent({ eventType:'notification.dispatched', userId:ownerRow.owner_id, channel:'email', status:emailEvent.status, subjectType:'alert', subjectId:match.alertId, metadata:{ estateId:estate.id, providerMessageId:emailResult.success?emailResult.messageId:undefined } });
         } else {
           emailEvent.status = 'failed';
@@ -80,8 +86,9 @@ export async function recordMatches(
         }
         events.push(emailEvent);
       }
-    } catch (error) {
-      console.error('Failed to record email notification:', error);
+      } catch (error) {
+        console.error('Failed to record email notification:', error);
+        await recordOperationalIncident({ type: 'alert_delivery_failure', severity: 'high', summary: `Email alert processing failed for ${match.alertName}`, detail: error instanceof Error ? error.message : String(error), alertId: match.alertId, estateId: estate.id, notificationId: emailEvent.id, dedupeKey: `alert-email-processing:${match.alertId}:${estate.id}` });
     }
 
     if (match.channels.includes('sms') && (ownerRow.role === 'admin' || ownerRow.phone_verified_at)) {
@@ -93,6 +100,7 @@ export async function recordMatches(
             const smsResult = await sendEstateAlertSms({ to: smsRecipient, estateId: estate.id, estateName: estate.deceasedName, estateNumber: estate.estateNumber, province: estate.province });
             smsEvent.status = smsResult.success ? 'sent' : 'failed';
             await query('UPDATE notifications SET status=$1,provider_message_id=$2,error=$3,attempts=attempts+1 WHERE alert_id=$4 AND estate_id=$5 AND channel=$6', [smsEvent.status, smsResult.success ? smsResult.messageId : null, smsResult.success ? null : smsResult.error, match.alertId, estate.id, 'sms']);
+            if (!smsResult.success) await recordOperationalIncident({ type: 'alert_delivery_failure', severity: 'high', summary: `SMS alert failed for ${match.alertName}`, detail: smsResult.error, alertId: match.alertId, estateId: estate.id, notificationId: smsEvent.id, provider: 'clickatell', dedupeKey: `alert-sms:${match.alertId}:${estate.id}` });
           } else {
             smsEvent.status = 'failed';
             await query('UPDATE notifications SET status=$1,error=$2,attempts=attempts+1 WHERE alert_id=$3 AND estate_id=$4 AND channel=$5', ['failed', 'No recipient phone configured', match.alertId, estate.id, 'sms']);
@@ -102,6 +110,7 @@ export async function recordMatches(
         }
       } catch (error) {
         console.error('Failed to record SMS notification:', error);
+        await recordOperationalIncident({ type: 'alert_delivery_failure', severity: 'high', summary: `SMS alert processing failed for ${match.alertName}`, detail: error instanceof Error ? error.message : String(error), alertId: match.alertId, estateId: estate.id, notificationId: smsEvent.id, provider: 'clickatell', dedupeKey: `alert-sms-processing:${match.alertId}:${estate.id}` });
         // SMS is optional and must never block the default email delivery.
       }
     } else if (match.channels.includes('sms')) {
