@@ -113,7 +113,10 @@ export function clearSessionCookie(res: Response) {
 }
 
 export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string; firstName?: string; surname?: string; companyName?: string; phone?: string }, transport: AuthTransport = postAuthJson) {
-  const requestBody = mode === 'sign-up' ? { ...body, callbackURL: `${applicationUrl()}/` } : body;
+  // Email/password signup does not require a redirect target. Omitting callbackURL
+  // avoids Neon Auth redirect-domain validation failures; verification still uses
+  // Neon Auth's email flow and the user can return to the app and sign in.
+  const requestBody = body;
   const result = await callNeonAuth(`${mode}/email`, requestBody, transport);
   const user = result.user;
   if (!user?.id || !user?.email) throw new Error(mode === 'sign-up' ? 'Check your email to verify the new account before signing in.' : 'Neon did not return a verified user.');
