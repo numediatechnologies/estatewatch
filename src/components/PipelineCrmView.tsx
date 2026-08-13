@@ -18,6 +18,8 @@ import {
 
 interface PipelineCrmViewProps {
   pipeline: PipelineItem[];
+  isSignedIn: boolean;
+  onRequestSignIn: () => void;
   onUpdateStage: (itemId: string, newStage: PipelineStage) => void;
   onUpdateNotes: (itemId: string, notes: string, estimate?: number, followUpAt?: string | null) => void;
   onRemoveItem: (itemId: string) => void;
@@ -33,7 +35,7 @@ const STAGES: { id: PipelineStage; label: string; color: string }[] = [
 ];
 
 export const PipelineCrmView: React.FC<PipelineCrmViewProps> = ({
-  pipeline,
+  pipeline, isSignedIn, onRequestSignIn,
   onUpdateStage,
   onUpdateNotes,
   onRemoveItem,
@@ -47,6 +49,17 @@ export const PipelineCrmView: React.FC<PipelineCrmViewProps> = ({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const totalValue = pipeline.reduce((acc, item) => acc + (item.valueEstimate || 0), 0);
+
+  if (!isSignedIn) {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-4">
+        <Briefcase className="w-10 h-10 text-amber-400 mx-auto" />
+        <h2 className="text-lg font-bold text-white">Sign in to save opportunities</h2>
+        <p className="text-sm text-slate-400 max-w-md mx-auto">Your Lead Pipeline is private account data. Sign in to save estate notices, add notes, track follow-ups, and manage your opportunities.</p>
+        <button onClick={onRequestSignIn} className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl">Sign in to continue</button>
+      </div>
+    );
+  }
 
   const handleStartEdit = (item: PipelineItem) => {
     setEditingId(item.id);

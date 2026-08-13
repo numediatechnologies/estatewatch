@@ -24,7 +24,7 @@
       "dest": "/server/index.ts"
     },
     {
-      "src": "/(assets/.*|robots\\.txt|sitemap\\.xml|site\\.webmanifest|favicon\\.ico|favicon-128\\.png)",
+      "src": "/(assets/.*|social/.*|robots\\.txt|sitemap\\.xml|site\\.webmanifest|favicon\\.ico|favicon-128\\.png)",
       "dest": "/dist/$1"
     },
     {
@@ -44,6 +44,18 @@
     {
       "path": "/api/cron/ingest",
       "schedule": "45 11 * * 1-6"
+    },
+    {
+      "path": "/api/cron/watchdog",
+      "schedule": "15 5 * * 1-6"
+    },
+    {
+      "path": "/api/cron/watchdog",
+      "schedule": "15 12 * * 1-6"
+    },
+    {
+      "path": "/api/cron/retry-notifications",
+      "schedule": "30 12 * * 1-6"
     }
   ]
 }

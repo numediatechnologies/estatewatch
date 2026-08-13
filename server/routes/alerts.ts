@@ -21,7 +21,9 @@ alertsRouter.post('/', validate(alertSchema), async (req,res) => {
   try {
     const session=sessionOr401(req,res); if(!session)return; const a=req.body;
     if(a.idNumberMatch&&!isValidSouthAfricanId(a.idNumberMatch))return res.status(400).json({error:'Enter a valid South African identity number'});
-    const entitlement=await getEntitlement(session); const active=session.role==='admin'||entitlement.active?(a.isActive??true):false;
+    const entitlement=await getEntitlement(session);
+    if (session.role !== 'admin' && !entitlement.active && (await query('SELECT count(*)::int AS count FROM alerts WHERE owner_id=$1',[session.sub])).rows[0].count >= entitlement.limits.savedAlerts) return res.status(403).json({ code:'FREE_ALERT_LIMIT', error:'The free tier allows one saved alert. Upgrade to create more.' });
+    const active=session.role==='admin'||entitlement.active?(a.isActive??true):false;
     const id=a.id||`alt-${Date.now()}`, idHash=a.idNumberMatch?identityFingerprint(a.idNumberMatch):null, idMasked=a.idNumberMatch?maskSouthAfricanId(a.idNumberMatch):null;
     await query(`INSERT INTO alerts (id,name,surname_match,provinces,districts,value_bands,asset_types,executor_status,channels,is_active,delivery_state,match_count,last_triggered,created_at,recipient_email,recipient_phone,owner_name,owner_id,id_number_hash,id_number_match_masked)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)

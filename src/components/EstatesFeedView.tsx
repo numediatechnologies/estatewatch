@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { DeceasedEstate, Province, EstateValueBand, AssetType, PipelineStage } from '../types';
 import { 
   Search, 
@@ -16,6 +16,7 @@ import {
   FileText,
   ShieldCheck,
   ChevronRight,
+  ChevronLeft,
   ArrowUpDown
 } from 'lucide-react';
 import { SouthAfricaMap } from './SouthAfricaMap';
@@ -25,6 +26,7 @@ interface EstatesFeedViewProps {
   onSelectEstate: (estate: DeceasedEstate) => void;
   onAddToPipeline: (estate: DeceasedEstate, stage: PipelineStage, notes: string) => void;
   pipelineEstateIds: string[];
+  isLoading?: boolean;
   isAdmin?: boolean;
 }
 
@@ -33,8 +35,10 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
   onSelectEstate,
   onAddToPipeline,
   pipelineEstateIds,
+  isLoading = false,
   isAdmin = false,
 }) => {
+  const PAGE_SIZE = 24;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProvince, setSelectedProvince] = useState<Province | 'all'>('all');
   const [selectedValueBand, setSelectedValueBand] = useState<EstateValueBand | 'all'>('all');
@@ -42,6 +46,7 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'table' | 'map'>('grid');
   const [sortBy, setSortBy] = useState<'gazetteDate' | 'name' | 'province' | 'masterOffice' | 'estateNumber'>('gazetteDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Filtered estates computation
   const filteredEstates = useMemo(() => {
@@ -70,6 +75,20 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
       return (sortDirection === 'asc' ? 1 : -1) * (comparison || String(left.id).localeCompare(String(right.id)) || a.index - b.index);
     }).map(({ estate }) => estate);
   }, [estates, searchTerm, selectedProvince, selectedValueBand, hasPropertyOnly, sortBy, sortDirection]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredEstates.length / PAGE_SIZE));
+  const paginatedEstates = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredEstates.slice(start, start + PAGE_SIZE);
+  }, [filteredEstates, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedProvince, selectedValueBand, hasPropertyOnly, sortBy, sortDirection]);
+
+  useEffect(() => {
+    setCurrentPage(page => Math.min(page, pageCount));
+  }, [pageCount]);
 
   // Province counts for map
   const provinceCounts = useMemo(() => {
@@ -251,7 +270,7 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
       {/* Results Counter & Info */}
       <div className="flex items-center justify-between text-xs text-slate-400">
         <div>
-          Showing <strong className="text-white">{filteredEstates.length}</strong> gazetted deceased estate notices
+          {isLoading ? 'Loading gazetted deceased estate notices…' : filteredEstates.length === 0 ? 'No gazetted deceased estate notices found' : <>Showing <strong className="text-white">{Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredEstates.length)}–{Math.min(currentPage * PAGE_SIZE, filteredEstates.length)}</strong> of <strong className="text-white">{filteredEstates.length}</strong> gazetted deceased estate notices</>}
         </div>
         <div className="flex items-center gap-1 text-[11px] text-emerald-400">
           <ShieldCheck className="w-3.5 h-3.5" />
@@ -259,10 +278,25 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
         </div>
       </div>
 
+      {isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" role="status" aria-live="polite">
+          {Array.from({ length: 6 }, (_, index) => <div key={index} className="h-72 animate-pulse rounded-2xl border border-slate-800 bg-slate-900" />)}
+        </div>
+      )}
+
+      {!isLoading && filteredEstates.length === 0 && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 px-6 py-12 text-center">
+          <FileText className="mx-auto h-8 w-8 text-slate-600" />
+          <h3 className="mt-3 text-sm font-bold text-white">No notices match those filters</h3>
+          <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-slate-400">Try clearing your search or choosing a different province, value band, or property filter.</p>
+          <button type="button" onClick={() => { setSearchTerm(''); setSelectedProvince('all'); setSelectedValueBand('all'); setHasPropertyOnly(false); }} className="mt-4 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400">Clear filters</button>
+        </div>
+      )}
+
       {/* View Mode: Grid Cards */}
-      {viewMode === 'grid' && (
+      {!isLoading && filteredEstates.length > 0 && viewMode === 'grid' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredEstates.map((estate) => {
+          {paginatedEstates.map((estate) => {
             const savedInPipeline = pipelineEstateIds.includes(estate.id);
             return (
               <div
@@ -355,7 +389,7 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
       )}
 
       {/* View Mode: Table View */}
-      {viewMode === 'table' && (
+      {!isLoading && filteredEstates.length > 0 && viewMode === 'table' && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-300">
@@ -371,7 +405,7 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80">
-                {filteredEstates.map((estate) => {
+                {paginatedEstates.map((estate) => {
                   const savedInPipeline = pipelineEstateIds.includes(estate.id);
                   return (
                     <tr key={estate.id} className="hover:bg-slate-800/40 transition-colors">
@@ -429,6 +463,61 @@ export const EstatesFeedView: React.FC<EstatesFeedViewProps> = ({
             </table>
           </div>
         </div>
+      )}
+
+      {!isLoading && filteredEstates.length > 0 && viewMode !== 'map' && pageCount > 1 && (
+        <nav className="flex flex-wrap items-center justify-center gap-2 text-xs text-slate-400" aria-label="Estate results pagination">
+          <button
+            type="button"
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+            className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 font-semibold text-slate-300 transition-colors hover:border-amber-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Go to first page"
+          >
+            First
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+            disabled={currentPage === 1}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 font-semibold text-slate-300 transition-colors hover:border-amber-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" /> Previous
+          </button>
+          <label className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-2 py-1.5">
+            <span>Page</span>
+            <input
+              type="number"
+              min={1}
+              max={pageCount}
+              value={currentPage}
+              onChange={(event) => {
+                const nextPage = Number(event.target.value);
+                if (Number.isFinite(nextPage)) setCurrentPage(Math.min(pageCount, Math.max(1, nextPage)));
+              }}
+              className="w-12 rounded border border-slate-700 bg-slate-950 px-1.5 py-1 text-center font-bold text-white focus:border-amber-500 focus:outline-none"
+              aria-label="Current page"
+            />
+            <span>of <strong className="text-white">{pageCount}</strong></span>
+          </label>
+          <button
+            type="button"
+            onClick={() => setCurrentPage(page => Math.min(pageCount, page + 1))}
+            disabled={currentPage === pageCount}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 font-semibold text-slate-300 transition-colors hover:border-amber-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Next <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrentPage(pageCount)}
+            disabled={currentPage === pageCount}
+            className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 font-semibold text-slate-300 transition-colors hover:border-amber-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Go to last page"
+          >
+            Last
+          </button>
+        </nav>
       )}
 
     </div>

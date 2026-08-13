@@ -10,6 +10,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { UserRole } from '../types';
+import { BrandName } from './BrandName';
 
 interface HeaderProps {
   currentRole: UserRole;
@@ -54,8 +55,8 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-bold text-lg lg:text-xl tracking-tight text-white flex items-center gap-1.5">
-                ESTATE<span className="text-amber-400 font-serif font-bold">WATCH</span> <span className="text-amber-400">👁️</span>
+              <h1 className="font-bold text-lg lg:text-xl tracking-tight text-white">
+                <BrandName />
               </h1>
               <span className="text-[10px] uppercase tracking-widest font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                 South African Gazette alerts
@@ -137,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Login Button */}
           <button
             onClick={onOpenLoginModal}
-            aria-label={currentUser ? `Account: ${currentUser.name}` : 'Login to EstateWatch'}
+            aria-label={currentUser ? `Account: ${currentUser.name}` : 'Login to EstateWatch eye'}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700/80 border border-slate-700/80 rounded-lg text-xs text-slate-300 hover:text-white transition-colors cursor-pointer"
           >
             <UserCheck className="w-3.5 h-3.5 text-amber-400" />

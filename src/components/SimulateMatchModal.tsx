@@ -1,51 +1,84 @@
-import React, { useState } from 'react';
-import { DeceasedEstate, Province, EstateValueBand } from '../types';
+import React, { useEffect, useState } from 'react';
+import { AlertCriteria, AssetType, DeceasedEstate, ExecutorStatus, Province, EstateValueBand } from '../types';
 import { Zap, Check, Bell, MessageSquare, Mail, X, Sparkles } from 'lucide-react';
+import { BrandName } from './BrandName';
 
 interface SimulateMatchModalProps {
   onClose: () => void;
-  onSimulate: (newEstate: DeceasedEstate) => void;
+  onSimulate: (newEstate: DeceasedEstate, testAlertId?: string) => void;
+  alerts: AlertCriteria[];
 }
 
 export const SimulateMatchModal: React.FC<SimulateMatchModalProps> = ({
   onClose,
-  onSimulate
+  onSimulate,
+  alerts,
 }) => {
+  const activeAlerts = alerts.filter((alert) => alert.isActive);
+  const [testAlertId, setTestAlertId] = useState(activeAlerts[0]?.id || '');
+  useEffect(() => {
+    const nextAlertId = activeAlerts.some((alert) => alert.id === testAlertId) ? testAlertId : (activeAlerts[0]?.id || '');
+    if (nextAlertId !== testAlertId) setTestAlertId(nextAlertId);
+    const selectedAlert = alerts.find((alert) => alert.id === nextAlertId);
+    if (!selectedAlert) return;
+    setSurname(selectedAlert.surnameMatch || 'Dlamini');
+    setProvince(selectedAlert.provinces[0] || 'Gauteng');
+    setDistrict(selectedAlert.districts?.[0] || 'Sandton');
+    setValueBand(selectedAlert.valueBands[selectedAlert.valueBands.length - 1] || 'Unknown');
+  }, [alerts, testAlertId]);
   const [surname, setSurname] = useState('Dlamini');
-  const [firstName, setFirstName] = useState('Sibusiso Robert');
+  const [firstName, setFirstName] = useState('');
   const [province, setProvince] = useState<Province>('Gauteng');
   const [district, setDistrict] = useState('Sandton');
-  const [valueBand, setValueBand] = useState<EstateValueBand>('R5,000,000 - R20,000,000');
+  const [valueBand, setValueBand] = useState<EstateValueBand>('Unknown');
   const [hasProperty, setHasProperty] = useState(true);
+  const selectedAlert = activeAlerts.find((alert) => alert.id === testAlertId);
+
+  useEffect(() => {
+    if (!selectedAlert) return;
+
+    setSurname(selectedAlert.surnameMatch || '');
+    setProvince(selectedAlert.provinces[0] || 'Gauteng');
+    setDistrict(selectedAlert.districts?.[0] || 'Sandton');
+    setValueBand(selectedAlert.valueBands[selectedAlert.valueBands.length - 1] || 'R5,000,000 - R20,000,000');
+    setHasProperty(selectedAlert.assetTypes.includes('property'));
+  }, [selectedAlert?.id]);
 
   const handleRunSimulation = () => {
     const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const effectiveSurname = selectedAlert?.surnameMatch || surname;
+    const effectiveProvince = selectedAlert?.provinces[0] || province;
+    const effectiveDistrict = selectedAlert?.districts?.[0] || district;
+    const effectiveValueBand = selectedAlert?.valueBands[selectedAlert.valueBands.length - 1] || valueBand;
+    const effectiveAssetTypes: AssetType[] = selectedAlert?.assetTypes.length ? [selectedAlert.assetTypes[0]] : (hasProperty ? ['property', 'shares', 'vehicle'] : ['bank_accounts', 'vehicle']);
+    const effectiveHasProperty = effectiveAssetTypes.includes('property') || (!selectedAlert && hasProperty);
+    const effectiveStatus: ExecutorStatus = selectedAlert?.executorStatus?.[0] || 'pending';
     const simulatedEstate: DeceasedEstate = {
       id: `sim-${Date.now()}`,
       sourceId: `GG-50282-${randomNum}`,
-      deceasedName: `${surname}, ${firstName}`,
+      deceasedName: `${effectiveSurname}, ${firstName}`,
       idNumberMasked: `760518****08${Math.floor(Math.random() * 9)}`,
       dateOfDeath: new Date().toISOString().split('T')[0],
       gazetteDate: new Date().toISOString().split('T')[0],
-      province,
-      district,
-      masterOffice: `Master of the High Court, ${district}`,
-      estateNumber: `0${randomNum}/2025/${province === 'Gauteng' ? 'JHB' : 'CPT'}`,
+      province: effectiveProvince,
+      district: effectiveDistrict,
+      masterOffice: `Master of the High Court, ${effectiveDistrict}`,
+      estateNumber: `0${randomNum}/2025/${effectiveProvince === 'Gauteng' ? 'JHB' : 'CPT'}`,
       executorName: 'Sibusiso Dlamini & Family Nominee',
       executorContact: '+27 83 992 1044',
       executorEmail: 'estate.dlamini@fiduciarysa.co.za',
-      valueBand,
-      assetTypes: hasProperty ? ['property', 'shares', 'vehicle'] : ['bank_accounts', 'vehicle'],
-      hasProperty,
-      propertyDetails: hasProperty ? `Erf ${randomNum} Bryanston Manor, Sandton (Residential Estate)` : undefined,
+      valueBand: effectiveValueBand,
+      assetTypes: effectiveAssetTypes,
+      hasProperty: effectiveHasProperty,
+      propertyDetails: effectiveHasProperty ? `Erf ${randomNum} Bryanston Manor, Sandton (Residential Estate)` : undefined,
       rawNoticeSnippet: `LIVE SIMULATION NOTICE: Estate Late ${firstName.toUpperCase()} ${surname.toUpperCase()}. Master Ref: 0${randomNum}/2025. Date of death: ${new Date().toLocaleDateString()}. Section 29 Notice to Creditors.`,
       gazetteRef: 'Govt Gazette Vol 712 No 50282 (Live Trigger)',
-      status: 'pending',
+      status: effectiveStatus,
       matchScore: 99,
-      matchedAlertIds: ['alt-1']
+      matchedAlertIds: []
     };
 
-    onSimulate(simulatedEstate);
+    onSimulate(simulatedEstate, testAlertId || undefined);
   };
 
   return (
@@ -74,8 +107,17 @@ export const SimulateMatchModal: React.FC<SimulateMatchModalProps> = ({
         {/* Form Body */}
         <div className="p-6 space-y-4">
           <p className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800">
-            This will instantly insert a simulated deceased estate notice into EstateWatch and trigger matching active alerts across <strong>WhatsApp, Email, and Push notifications</strong>.
+            This inserts a simulated Gazette notice and runs the same matching and delivery path used by ingestion. Choose an active alert below to make the test deterministic.
           </p>
+
+          <div>
+            <label className="text-[11px] text-slate-400 block mb-1">Test active alert</label>
+            <select value={testAlertId} onChange={(e) => setTestAlertId(e.target.value)} disabled={!activeAlerts.length} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white disabled:opacity-60">
+              {!activeAlerts.length && <option value="">No active alerts available</option>}
+              {activeAlerts.map((alert) => <option key={alert.id} value={alert.id}>{alert.name}</option>)}
+            </select>
+            <p className="mt-1 text-[10px] text-slate-500">The surname and province fields below are prefilled from this alert.</p>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -131,6 +173,7 @@ export const SimulateMatchModal: React.FC<SimulateMatchModalProps> = ({
               onChange={(e) => setValueBand(e.target.value as EstateValueBand)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white"
             >
+              <option value="Unknown">Unknown / not specified</option>
               <option value="< R250,000">&lt; R250,000</option>
               <option value="R250,000 - R1,000,000">R250,000 - R1,000,000</option>
               <option value="R1,000,000 - R5,000,000">R1,000,000 - R5,000,000</option>
@@ -156,12 +199,8 @@ export const SimulateMatchModal: React.FC<SimulateMatchModalProps> = ({
           <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 space-y-1.5">
             <span className="text-[10px] text-slate-400 uppercase font-semibold block">Target Delivery Channels</span>
             <div className="flex items-center gap-3 text-xs text-slate-300">
-              <span className="flex items-center gap-1 text-emerald-400">
-                <MessageSquare className="w-3.5 h-3.5" /> WhatsApp Push
-              </span>
-              <span className="flex items-center gap-1 text-blue-400">
-                <Mail className="w-3.5 h-3.5" /> Email Digest
-              </span>
+              <span className="flex items-center gap-1 text-blue-400"><Mail className="w-3.5 h-3.5" /> Email</span>
+              {selectedAlert?.channels.includes('sms') && <span className="flex items-center gap-1 text-purple-400"><MessageSquare className="w-3.5 h-3.5" /> SMS</span>}
               <span className="flex items-center gap-1 text-amber-400">
                 <Bell className="w-3.5 h-3.5" /> In-App Alert
               </span>
@@ -180,6 +219,7 @@ export const SimulateMatchModal: React.FC<SimulateMatchModalProps> = ({
           </button>
           <button
             onClick={handleRunSimulation}
+            disabled={!activeAlerts.length}
             className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-lg shadow-amber-500/10"
           >
             <Zap className="w-4 h-4 fill-current" />

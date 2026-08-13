@@ -26,6 +26,7 @@ interface EstateDetailModalProps {
   isSignedIn: boolean;
   canViewOriginal: boolean;
   onViewPlans: () => void;
+  onRequestSignIn: () => void;
 }
 
 export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
@@ -36,6 +37,7 @@ export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
   isSignedIn,
   canViewOriginal,
   onViewPlans,
+  onRequestSignIn,
 }) => {
   const [notes, setNotes] = React.useState('');
   const [stage, setStage] = React.useState<PipelineStage>('new');
@@ -238,13 +240,19 @@ export const EstateDetailModal: React.FC<EstateDetailModalProps> = ({
               {copied ? 'Copied Summary!' : 'Copy WhatsApp Summary'}
             </button>
 
-            <button
+            {isSignedIn ? <button
               onClick={() => setShowEmailModal(true)}
               className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <Mail className="w-3.5 h-3.5" />
               Send Email Alert
-            </button>
+            </button> : <button
+              onClick={onRequestSignIn}
+              className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              Sign in to email
+            </button>}
           </div>
           
           <button

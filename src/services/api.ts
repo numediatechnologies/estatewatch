@@ -24,6 +24,15 @@ export interface DataQualityReport {
 
 const API_BASE = '/api';
 const apiFetch: typeof fetch = (input, init = {}) => fetch(input, { ...init, credentials: 'include' });
+export type BillingPlan = 'pro' | 'agency';
+export type BillingCycle = 'monthly' | 'annual';
+export type BillingDocument = { id:string; type:'quote'|'invoice'; status:string; document_number:string; plan_key:string; billing_cycle:string; total_cents:number; issue_date:string; validity_date?:string|null };
+export async function fetchBillingEntitlement() { const res=await apiFetch(`${API_BASE}/billing/entitlement`); const body=await res.json().catch(()=>({})); if(!res.ok)throw new Error(res.status===401?'Please sign in to continue.':body.error||'Billing information is temporarily unavailable.'); return body; }
+export async function fetchBillingDocuments():Promise<BillingDocument[]> { const res=await apiFetch(`${API_BASE}/billing/documents`); const body=await res.json().catch(()=>({})); if(!res.ok)throw new Error(res.status===401?'Please sign in to continue.':body.error||'Your documents are temporarily unavailable.'); return body; }
+export async function fetchBillingPayments():Promise<any[]> { const res=await apiFetch(`${API_BASE}/billing/payments`); const body=await res.json().catch(()=>({})); if(!res.ok)throw new Error(body.error||'Your payment history is temporarily unavailable.'); return body; }
+export async function requestBillingQuote(input:{plan:BillingPlan; billingCycle:BillingCycle; contactName:string; companyName:string; vatNumber:string}):Promise<any> { const res=await apiFetch(`${API_BASE}/billing/quotes`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)}); const body=await res.json().catch(()=>({})); if(!res.ok)throw new Error(body.error||'We could not create your quote. Please try again.'); return body; }
+export async function startBillingCheckout(input:{plan:BillingPlan; billingCycle:BillingCycle; method:'payfast'|'bank_transfer'; quoteId?:string}):Promise<any> { const res=await apiFetch(`${API_BASE}/billing/checkout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)}); const body=await res.json().catch(()=>({})); if(!res.ok)throw new Error(res.status===404?'We could not find that quote.':body.error||'This payment service is temporarily unavailable.'); return body; }
+export function billingDocumentPdfUrl(id:string) { return `${API_BASE}/billing/documents/${encodeURIComponent(id)}/pdf`; }
 
 export async function fetchHealthCheck() {
   try {
@@ -254,17 +263,13 @@ export async function sendEmailNotification(recipientEmail: string, estate: Dece
   }
 }
 
-export async function simulateMatchApi(estate: DeceasedEstate) {
-  try {
-    const res = await apiFetch(`${API_BASE}/simulate-match`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(estate),
-    });
-    if (!res.ok) throw new Error('Simulation endpoint returned error');
-    return await res.json();
-  } catch (err) {
-    console.warn('Simulation API offline, using client fallback:', err);
-    return null;
-  }
+export async function simulateMatchApi(estate: DeceasedEstate, testAlertId?: string) {
+  const res = await apiFetch(`${API_BASE}/simulate-match`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(testAlertId ? { ...estate, testAlertId } : estate),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Simulation endpoint returned an error');
+  return body;
 }

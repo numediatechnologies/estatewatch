@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * run-migrations.mjs
- * Applies all pending SQL migration files in ./migrations/ to the Neon database.
+ * Applies all pending SQL migration files in ./migrations/ to the PostgreSQL database.
  * Usage: node scripts/run-migrations.mjs
  * Requires DATABASE_URL or POSTGRES_URL in environment.
  */

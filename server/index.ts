@@ -7,18 +7,25 @@ import { estatesRouter } from './routes/estates.js';
 import { notificationsRouter } from './routes/notificationsRoutes.js';
 import { pipelineRouter } from './routes/pipeline.js';
 import { createFirecrawlClient, discoverGazettes } from './firecrawlDiscovery.js';
-import { runIngestion } from './ingestService.js';
+import { insertEstate, loadAlerts, runIngestion } from './ingestService.js';
+import { matchEstateToAlerts } from './matching.js';
+import { recordMatches, retryFailedEmailNotifications } from './notifications.js';
 import { query } from './db.js';
 import { initializeDatabase } from './initDb.js';
 import { authenticateWithNeon, clearSessionCookie, createSessionToken, readSession, requestPasswordResetWithNeon, resetPasswordWithNeon, setSessionCookie } from './auth.js';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { normalizeSmsRecipient, sendVerificationSms } from './smsService.js';
-import { sendContactMessage, sendTestEmail } from './emailService.js';
+import { sendBillingDocumentEmail, sendContactMessage, sendTestEmail } from './emailService.js';
 import { listOperationalIncidents, notifyAdminOfIncident, resolveOperationalIncident } from './operationalIncidents.js';
 import { buildMarketDirectContactPayload, sendContactToMarketDirectCrm } from './leadCrmService.js';
 import { ALLOWED_CONTACT_ENQUIRIES, applySecurityHeaders, CONTACT_FIELD_LIMITS, consumeContactRateLimit } from './security.js';
 import { recordAuditEvent, maskedPhone } from './audit.js';
 import { getDataQualityReport } from './estateRetention.js';
+import { getEntitlement, getUsage } from './entitlements.js';
+import { BANK_PAYMENT_DETAILS, PLAN_PRICES_CENTS, createCheckoutFields, payfastEndpoint, verifySignature } from './payments.js';
+import { billingDocumentHtml, createBillingDocument, createInvoiceForPayment, renderBillingPdf } from './billingDocuments.js';
+import { estateSchema, simulationSchema } from './types.js';
+import { validate } from './validate.js';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -54,6 +61,7 @@ export function createApp(dependencies: AppDependencies = {
 const application = express();
 application.use(cors());
 application.use(express.json({ limit: '1mb' }));
+application.use(express.urlencoded({ extended: false }));
 application.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, firstName, surname, companyName, phone, verificationMethod = 'email' } = req.body || {};
@@ -188,7 +196,34 @@ application.get('/api/health', async (_req, res) => {
 application.use('/api/estates', estatesRouter);
 application.use('/api/alerts', alertsRouter);
 application.use('/api/pipeline', pipelineRouter);
-application.use('/api/notifications', requireAdmin, notificationsRouter);
+application.use('/api/notifications', notificationsRouter);
+
+const billingSession = (req: Request, res: Response) => { const session = readSession(req); if (!session) { res.status(401).json({ code: 'AUTH_REQUIRED', error: 'Please sign in to continue.' }); return null; } return session; };
+const billingPlan = (value: unknown) => value === 'agency' ? 'agency' : 'pro';
+const billingCycle = (value: unknown) => value === 'annual' ? 'annual' : 'monthly';
+
+application.get('/api/billing/entitlement', async (req, res) => { try { const session=billingSession(req,res); if(!session)return; res.json(await getEntitlement(session)); } catch { res.status(503).json({ code:'BILLING_UNAVAILABLE', error:'Billing information is temporarily unavailable.' }); } });
+application.get('/api/billing/usage', async (req, res) => { try { const session=billingSession(req,res); if(!session)return; const entitlement=await getEntitlement(session); res.json({ limits: entitlement.limits, usage: entitlement.usage || await getUsage(session.sub), plan: entitlement.plan }); } catch { res.status(503).json({ code:'BILLING_UNAVAILABLE', error:'Usage information is temporarily unavailable.' }); } });
+
+application.post('/api/billing/quotes', async (req, res) => {
+  try {
+    const session=billingSession(req,res); if(!session)return;
+    const plan=billingPlan(req.body?.plan), cycle=billingCycle(req.body?.billingCycle);
+    const customer={ name:String(req.body?.contactName||session.name||session.email).trim(), companyName:String(req.body?.companyName||session.companyName||'').trim(), email:session.email, phone:String(req.body?.phone||'').trim(), vatNumber:String(req.body?.vatNumber||'').trim() };
+    const document=await createBillingDocument({ userId:session.sub,type:'quote',plan,cycle,customer,status:'sent' });
+    void renderBillingPdf(document).then((pdf) => sendBillingDocumentEmail({ to: session.email, document, pdf }));
+    res.status(201).json({ document, message:'Your quote is ready on screen and has been queued for email delivery.' });
+  } catch (error:any) { res.status(500).json({ code:'QUOTE_FAILED', error:'We could not create your quote. Please try again.' }); }
+});
+
+application.get('/api/billing/documents', async (req,res)=>{ try { const session=billingSession(req,res); if(!session)return; const result=await query(`SELECT * FROM billing_documents WHERE user_id=$1 ORDER BY created_at DESC`,[session.sub]); res.json(result.rows); } catch { res.status(503).json({code:'BILLING_UNAVAILABLE',error:'Your documents are temporarily unavailable.'}); } });
+application.get('/api/billing/documents/:id', async (req,res)=>{ try { const session=billingSession(req,res); if(!session)return; const result=await query(`SELECT * FROM billing_documents WHERE id=$1 AND user_id=$2`,[req.params.id,session.sub]); if(!result.rows[0])return res.status(404).json({code:'DOCUMENT_NOT_FOUND',error:'We could not find that document.'}); res.json(result.rows[0]); } catch { res.status(503).json({code:'BILLING_UNAVAILABLE',error:'Your document is temporarily unavailable.'}); } });
+application.get('/api/billing/documents/:id/pdf', async (req,res)=>{ try { const session=billingSession(req,res); if(!session)return; const result=await query(`SELECT * FROM billing_documents WHERE id=$1 AND user_id=$2`,[req.params.id,session.sub]); if(!result.rows[0])return res.status(404).json({code:'DOCUMENT_NOT_FOUND',error:'We could not find that document.'}); const pdf=await renderBillingPdf(result.rows[0]); res.type('application/pdf').set('Content-Disposition',`inline; filename=${result.rows[0].document_number}.pdf`).send(pdf); } catch { res.status(503).json({code:'PDF_UNAVAILABLE',error:'We could not prepare that PDF.'}); } });
+
+application.post('/api/billing/checkout', async (req,res)=>{ try { const session=billingSession(req,res); if(!session)return; const plan=billingPlan(req.body?.plan), cycle=billingCycle(req.body?.billingCycle), amount=PLAN_PRICES_CENTS[plan][cycle]; const quoteId=req.body?.quoteId ? String(req.body.quoteId) : null; if(quoteId){ const owned=await query('SELECT id FROM billing_documents WHERE id=$1 AND user_id=$2 AND type=\'quote\' AND status IN (\'sent\',\'ready_to_pay\')',[quoteId,session.sub]); if(!owned.rows[0])return res.status(404).json({code:'DOCUMENT_NOT_FOUND',error:'We could not find that quote.'}); } const reference=`EW-${randomUUID()}`; const result=await query(`INSERT INTO billing_payments(user_id,plan_key,billing_cycle,payment_method,status,amount_cents,reference,quote_id) VALUES($1,$2,$3,$4,'pending',$5,$6,$7) RETURNING *`,[session.sub,plan,cycle,req.body?.method==='bank_transfer'?'bank_transfer':'payfast',amount,reference,quoteId]); if(req.body?.method==='bank_transfer') return res.status(201).json({ payment:result.rows[0], bankDetails:BANK_PAYMENT_DETAILS, message:'Your bank payment reference is ready. Upload proof once payment is made.' }); const fields=createCheckoutFields({reference,amountCents:amount,planName:plan==='agency'?'Agency / Firm':'Pro Solo',email:session.email,baseUrl:process.env.APP_URL||'https://estatewatch-ivory.vercel.app'}); res.status(201).json({payment:result.rows[0],checkout:{endpoint:payfastEndpoint(),fields}}); } catch { res.status(503).json({code:'CHECKOUT_UNAVAILABLE',error:'This payment service is temporarily unavailable.'}); } });
+application.post('/api/billing/bank-proof', async (req,res)=>{ try { const session=billingSession(req,res); if(!session)return; const reference=String(req.body?.reference||'').trim(); if(!reference)return res.status(400).json({code:'REFERENCE_REQUIRED',error:'Enter your payment reference.'}); const result=await query(`UPDATE billing_payments SET status='awaiting_review',proof_note=$1,updated_at=NOW() WHERE reference=$2 AND user_id=$3 AND payment_method='bank_transfer' RETURNING *`,[String(req.body?.note||'').slice(0,1000),reference,session.sub]); if(!result.rows[0])return res.status(404).json({code:'PAYMENT_NOT_FOUND',error:'We could not find that payment reference.'}); res.json({payment:result.rows[0],message:'Your bank payment is awaiting review.'}); } catch { res.status(503).json({code:'PAYMENT_UNAVAILABLE',error:'We could not record your proof of payment.'}); } });
+application.get('/api/billing/payments', async (req,res)=>{ try { const session=billingSession(req,res); if(!session)return; const result=await query('SELECT * FROM billing_payments WHERE user_id=$1 ORDER BY created_at DESC',[session.sub]); res.json(result.rows); } catch { res.status(503).json({code:'BILLING_UNAVAILABLE',error:'Your payment history is temporarily unavailable.'}); } });
+application.post('/api/payfast/itn', async (req,res)=>{ try { const fields=req.body||{}; if(String(fields.merchant_id)!==String(process.env.PAYFAST_MERCHANT_ID||'10000100')||!verifySignature(fields))return res.status(400).send('Invalid payment notification'); const result=await query('SELECT * FROM billing_payments WHERE reference=$1',[String(fields.m_payment_id||'')]); const payment=result.rows[0]; if(!payment)return res.status(404).send('Payment reference not found'); if(payment.status==='paid')return res.status(200).send('OK'); const status=String(fields.payment_status||'').toUpperCase()==='COMPLETE'?'paid':String(fields.payment_status||'').toUpperCase()==='CANCELLED'?'cancelled':'failed'; await query('UPDATE billing_payments SET status=$1,gateway_payment_id=$2,paid_at=CASE WHEN $1=\'paid\' THEN NOW() ELSE paid_at END,raw_payload=$3::jsonb,updated_at=NOW() WHERE id=$4',[status,String(fields.pf_payment_id||''),JSON.stringify(fields),payment.id]); if(status==='paid'){ await query(`UPDATE user_profiles SET subscription_status='active',subscription_plan=$1,subscription_expires_at=NOW()+CASE WHEN $2='annual' THEN INTERVAL '1 year' ELSE INTERVAL '1 month' END WHERE auth_subject=$3`,[payment.plan_key,payment.billing_cycle,payment.user_id]); const invoice=await createInvoiceForPayment({...payment,status:'paid'}); if(payment.quote_id) await query(`UPDATE billing_documents SET status='converted_to_invoice',payment_id=$1 WHERE id=$2 AND user_id=$3`,[payment.id,payment.quote_id,payment.user_id]); void invoice; } res.status(200).send('OK'); } catch { res.status(500).send('Payment notification unavailable'); } });
 
 application.post('/api/run-fetch', requireAdmin, async (req, res) => {
   try {
@@ -209,6 +244,32 @@ application.post('/api/ingest-gazettes', requireAdmin, async (req, res) => {
     res.status(result.status === 'completed' ? 200 : 502).json({ success: result.status === 'completed', data: result });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+application.post('/api/simulate-match', requireAdmin, validate(simulationSchema), async (req, res) => {
+  try {
+    const { testAlertId, ...estateInput } = req.body;
+    const estate = { ...estateInput, id: estateInput.id || `sim-${randomUUID()}` };
+    const alerts = await loadAlerts();
+    if (testAlertId) {
+      const selectedAlert = alerts.find((alert: any) => alert.id === testAlertId);
+      if (!selectedAlert) return res.status(404).json({ success: false, error: 'The selected alert is no longer available.' });
+      // The stored fingerprint never leaves the server; it is only applied to this admin test notice.
+      if (selectedAlert.idNumberHash) (estate as any).idNumberHash = selectedAlert.idNumberHash;
+    }
+    const matches = matchEstateToAlerts(estate, alerts);
+    await insertEstate(estate);
+    const events = await recordMatches(estate, matches);
+    res.json({
+      success: true,
+      estate,
+      matchedAlerts: matches.map((match) => ({ id: match.alertId, name: match.alertName, score: match.score, reasons: match.reasons })),
+      notifications: events,
+      notification: events[0] || null,
+      message: matches.length ? `Simulation matched ${matches.length} active alert${matches.length === 1 ? '' : 's'}.` : 'Simulation completed without matching an active alert.',
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message || 'Simulation failed' });
   }
 });
 application.post('/api/admin/migrate', requireAdmin, async (_req, res) => {
@@ -297,6 +358,35 @@ application.get('/api/cron/ingest', requireCron, async (_req, res) => {
   } catch (error: any) {
     const incident = await notifyAdminOfIncident({ type: 'cron_failure', severity: 'critical', summary: 'Scheduled Gazette ingestion crashed', detail: error.message || String(error), dedupeKey: `cron-crash:${error.message || String(error)}` });
     res.status(500).json({ success: false, error: error.message, incident: { id: incident.incident?.id, operatorNotified: incident.email.success, provider: incident.email.success ? incident.email.provider : undefined, attempts: incident.email.attempts || [] } });
+  }
+});
+
+application.get('/api/cron/watchdog', requireCron, async (_req, res) => {
+  try {
+    const now = new Date();
+    const hour = now.getUTCHours();
+    const slotStart = new Date(now);
+    if (hour < 10) slotStart.setUTCHours(4, 0, 0, 0);
+    else slotStart.setUTCHours(11, 0, 0, 0);
+    const recent = await query(`SELECT ingestion_id, status, completed_at FROM ingestion_runs
+      WHERE status='completed' AND completed_at >= $1 ORDER BY completed_at DESC LIMIT 1`, [slotStart.toISOString()]);
+    if (recent.rows[0]) return res.json({ success: true, status: 'healthy', run: recent.rows[0] });
+    const detail = `No completed Gazette ingestion was recorded after ${slotStart.toISOString()}. The scheduled run may have been missed or failed before completion.`;
+    const incident = await notifyAdminOfIncident({ type: 'cron_failure', severity: 'critical', summary: 'Gazette ingestion watchdog detected a missed run', detail, dedupeKey: `watchdog:${slotStart.toISOString().slice(0, 13)}` });
+    return res.status(502).json({ success: false, status: 'missed', detail, incident: { id: incident.incident?.id, operatorNotified: incident.email.success, provider: incident.email.success ? incident.email.provider : undefined, attempts: incident.email.attempts || [] } });
+  } catch (error: any) {
+    const incident = await notifyAdminOfIncident({ type: 'cron_failure', severity: 'critical', summary: 'Ingestion watchdog crashed', detail: error.message || String(error), dedupeKey: `watchdog-crash:${error.message || String(error)}` });
+    return res.status(500).json({ success: false, error: error.message, incident: { id: incident.incident?.id, operatorNotified: incident.email.success } });
+  }
+});
+
+application.get('/api/cron/retry-notifications', requireCron, async (_req, res) => {
+  try {
+    const result = await retryFailedEmailNotifications();
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    const incident = await notifyAdminOfIncident({ type: 'alert_delivery_failure', severity: 'critical', summary: 'Automatic alert retry worker failed', detail: error.message || String(error), dedupeKey: `notification-retry-worker:${error.message || String(error)}` });
+    res.status(500).json({ success: false, error: error.message, incident: { id: incident.incident?.id, operatorNotified: incident.email.success } });
   }
 });
 

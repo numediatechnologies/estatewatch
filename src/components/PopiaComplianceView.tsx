@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldCheck, FileText, CheckCircle2, AlertTriangle, Send, Lock } from 'lucide-react';
+import { BrandName } from './BrandName';
 
 export const PopiaComplianceView: React.FC = () => {
   const [optOutSubmitted, setOptOutSubmitted] = useState(false);
@@ -23,7 +24,7 @@ export const PopiaComplianceView: React.FC = () => {
           <span>Protection of Personal Information Act (POPIA) Compliance Framework</span>
         </div>
         <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
-          Deceased estate notices published in the Government Gazette and at the Master's Office are statutory public records under Section 29 & 35 of Act 66 of 1965. EstateWatch processes this public data in strict compliance with South Africa’s POPIA regulation.
+          Deceased estate notices published in the Government Gazette and at the Master's Office are statutory public records under Section 29 & 35 of Act 66 of 1965. <BrandName /> processes this public data in strict compliance with South Africa’s POPIA regulation.
         </p>
       </div>
 

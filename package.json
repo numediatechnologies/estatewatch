@@ -11,13 +11,14 @@
     "server": "tsx server/index.ts",
     "db:init": "tsx server/initDb.ts",
     "db:migrate": "node scripts/run-migrations.mjs",
-    "build": "node scripts/run-migrations.mjs && tsc && vite build && tsx scripts/generate-seo-pages.ts",
+    "build": "node scripts/run-migrations.mjs && npm run seo:generate && npm run social:generate && tsc -p ./tsconfig.json --noEmit && vite build && tsx scripts/generate-seo-pages.ts && tsx scripts/validate-seo-output.ts",
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:firecrawl:live": "tsx scripts/test-firecrawl-live.ts",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "fetch-gazettes": "tsx scripts/firecrawl-fetch.ts",
-    "seo:generate": "tsx scripts/generate-sitemap.ts"
+    "seo:generate": "tsx scripts/generate-sitemap.ts",
+    "social:generate": "node scripts/generate-social-assets.mjs"
   },
   "dependencies": {
     "@google-cloud/documentai": "^9.6.2",
@@ -34,6 +35,7 @@
     "lucide-react": "^0.344.0",
     "motion": "^11.11.17",
     "pdfjs-dist": "^6.2.108",
+    "pdfkit": "^0.19.1",
     "pg": "^8.13.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -49,6 +51,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.2",
+    "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.11.10",
     "@types/supertest": "^7.2.1",
     "concurrently": "^9.1.0",

@@ -10,6 +10,7 @@ import {
 import { INITIAL_ESTATES } from './data/mockEstates';
 import { INITIAL_ALERTS } from './data/mockAlerts';
 import { INITIAL_PIPELINE } from './data/mockPipeline';
+import { BrandName } from './components/BrandName';
 
 import {
   fetchHealthCheck,
@@ -36,6 +37,7 @@ import { AlertBuilderView } from './components/AlertBuilderView';
 import { PipelineCrmView } from './components/PipelineCrmView';
 import { IngestionScannerView } from './components/IngestionScannerView';
 import { AdminScraperView } from './components/AdminScraperView';
+import { AdminSettingsView } from './components/AdminSettingsView';
 import { PopiaComplianceView } from './components/PopiaComplianceView';
 import { BillingView } from './components/BillingView';
 import { EstateDetailModal } from './components/EstateDetailModal';
@@ -47,20 +49,29 @@ import { Bot, Check, X, Bell, MessageSquare, Zap, Database, Mail } from 'lucide-
 import { UserAccount } from './types';
 import { SeoHead } from './components/SeoHead';
 import { geographicPage } from './seo';
+import { EstateWatchFooter } from './components/EstateWatchFooter';
 
 export function App() {
   const geoPage = geographicPage();
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabType>('estates');
   const [currentRole, setCurrentRole] = useState<UserRole>('attorney');
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [sessionResolved, setSessionResolved] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [billingSelection, setBillingSelection] = useState<{ plan: 'pro' | 'agency'; cycle: 'monthly' | 'annual' }>({ plan: 'pro', cycle: 'annual' });
+  const [billingLoginPending, setBillingLoginPending] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.has('reset-password')) setShowLoginModal(true);
+    if (params.has('reset-password') || params.has('token') || params.has('error')) setShowLoginModal(true);
     void restoreNeonSession().then((user) => {
-      if (user) setCurrentUser({ id: user.id, email: user.email, name: user.name, role: user.role, subscriptionActive: user.subscriptionActive, userPersona: 'attorney', companyName: user.companyName, phoneMasked: user.phoneMasked, phoneVerified: user.phoneVerified, subscriptionStatus: user.subscriptionStatus, subscriptionExpiresAt: user.subscriptionExpiresAt });
-    });
+      if (user) {
+        setCurrentUser({ id: user.id, email: user.email, name: user.name, role: user.role, subscriptionActive: user.subscriptionActive, userPersona: 'attorney', companyName: user.companyName, phoneMasked: user.phoneMasked, phoneVerified: user.phoneVerified, subscriptionStatus: user.subscriptionStatus, subscriptionExpiresAt: user.subscriptionExpiresAt });
+        if (!params.has('estate')) setActiveTab('dashboard');
+      } else if (!params.has('estate')) {
+        setActiveTab('estates');
+      }
+    }).finally(() => setSessionResolved(true));
   }, []);
 
   useEffect(() => {
@@ -75,12 +86,13 @@ export function App() {
     return () => { active = false; };
   }, []);
 
-  // Core Data State (Initialized with mocks, updated from Neon DB)
+  // Core data state (initialized with mocks, updated from PostgreSQL)
   const demoEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_DATA === 'true';
   const [estates, setEstates] = useState<DeceasedEstate[]>(demoEnabled ? INITIAL_ESTATES : []);
   const [alerts, setAlerts] = useState<AlertCriteria[]>(demoEnabled ? INITIAL_ALERTS : []);
   const [pipeline, setPipeline] = useState<PipelineItem[]>(demoEnabled ? INITIAL_PIPELINE : []);
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
+  const [estatesLoading, setEstatesLoading] = useState(!demoEnabled);
 
   // Modals & Notifications
   const [selectedEstate, setSelectedEstate] = useState<DeceasedEstate | null>(null);
@@ -100,16 +112,18 @@ export function App() {
     }
   ] : []);
   const [toastNotification, setToastNotification] = useState<NotificationEvent | null>(null);
+  const [simulationError, setSimulationError] = useState('');
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
 
-  // Sync with Neon DB on mount
+  // Sync with PostgreSQL on mount
   useEffect(() => {
     async function loadDataFromNeonDB() {
+      setEstatesLoading(true);
       // 1. Health check
       const health = await fetchHealthCheck();
       if (health && health.database === 'connected') {
         setDbConnected(true);
-        console.log('⚡ Connected to Neon PostgreSQL database!');
+        console.log('⚡ Connected to PostgreSQL database!');
 
         // Load Estates
         const dbEstates = await fetchEstates();
@@ -125,7 +139,7 @@ export function App() {
 
         // Load Pipeline
         const dbPipeline = await fetchPipeline();
-        if (dbPipeline && dbPipeline.length > 0) {
+        if (dbPipeline) {
           setPipeline(dbPipeline);
         }
 
@@ -137,6 +151,7 @@ export function App() {
       } else {
         setDbConnected(false);
       }
+      setEstatesLoading(false);
     }
 
     loadDataFromNeonDB();
@@ -148,6 +163,10 @@ export function App() {
     stage: PipelineStage = 'new',
     notes: string = ''
   ) => {
+    if (!currentUser) {
+      setShowLoginModal(true);
+      return;
+    }
     if (pipeline.some(p => p.estateId === estate.id)) return;
 
     const newItem: PipelineItem = {
@@ -162,10 +181,7 @@ export function App() {
       tags: [estate.district, estate.province]
     };
 
-    setPipeline(prev => [newItem, ...prev]);
-
-    // Save to DB
-    await addPipelineApi({
+    const saved = await addPipelineApi({
       id: newItem.id,
       estateId: estate.id,
       stage: newItem.stage,
@@ -175,6 +191,7 @@ export function App() {
       tags: newItem.tags,
       updatedAt: newItem.updatedAt,
     });
+    if (saved) setPipeline(prev => [newItem, ...prev]);
   };
 
   // Update Pipeline Item Stage
@@ -232,34 +249,24 @@ export function App() {
   };
 
   // Simulation Trigger Match Handler
-  const handleSimulateMatch = async (newEstate: DeceasedEstate) => {
-    setEstates(prev => [newEstate, ...prev]);
-    setSimulateModalOpen(false);
-
-    // Call API Endpoint for simulation + email alert dispatch
-    const apiResult = await simulateMatchApi(newEstate);
-
-    const newNotif: NotificationEvent = apiResult?.notification || {
-      id: `notif-${Date.now()}`,
-      alertId: 'alt-1',
-      alertName: 'Gauteng High-Value Estate Alert',
-      estateId: newEstate.id,
-      deceasedName: newEstate.deceasedName,
-      estateNumber: newEstate.estateNumber,
-      channel: 'email',
-      sentAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      status: 'delivered',
-      recipient: newEstate.executorEmail || 'attorney@estatewatch.co.za'
-    };
-
-    setNotifications(prev => [newNotif, ...prev]);
-    setToastNotification(newNotif);
-
-    // Update alert match count
-    setAlerts(prev => prev.map(a => a.id === 'alt-1' ? { ...a, matchCount: a.matchCount + 1 } : a));
-
-    // Auto-open modal to inspect
-    setSelectedEstate(newEstate);
+  const handleSimulateMatch = async (newEstate: DeceasedEstate, testAlertId?: string) => {
+    setSimulationError('');
+    try {
+      const apiResult = await simulateMatchApi(newEstate, testAlertId);
+      const savedEstate = apiResult.estate || newEstate;
+      setEstates(prev => [savedEstate, ...prev]);
+      setSimulateModalOpen(false);
+      const dispatched = (apiResult.notifications || []) as NotificationEvent[];
+      setNotifications(prev => [...dispatched, ...prev]);
+      if (dispatched[0]) setToastNotification(dispatched[0]);
+      setAlerts(prev => prev.map(a => {
+        const match = (apiResult.matchedAlerts || []).find((item: { id: string }) => item.id === a.id);
+        return match ? { ...a, matchCount: a.matchCount + 1 } : a;
+      }));
+      setSelectedEstate(savedEstate);
+    } catch (error: any) {
+      setSimulationError(error.message || 'The live alert simulation failed. No notification was sent.');
+    }
 
     // Dismiss toast after 6s
     setTimeout(() => {
@@ -298,6 +305,13 @@ export function App() {
         </div>
       </div>}
 
+      {!sessionResolved ? (
+        <div className="flex flex-1 items-center justify-center p-8" role="status" aria-live="polite">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 px-6 py-5 text-center text-sm text-slate-300 shadow-xl">
+            Restoring your EstateWatch session…
+          </div>
+        </div>
+      ) : <>
       {/* Top Header */}
       <Header
         currentRole={currentRole}
@@ -323,7 +337,7 @@ export function App() {
 
         {/* Right Main Content Stage */}
         <main className="flex-1 min-w-0">
-          {geoPage && <section className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-950/20 p-5"><p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Built for South Africa</p><h1 className="mt-1 text-xl font-bold text-white">Deceased estate alerts in {geoPage.name}</h1><p className="mt-2 max-w-2xl text-xs leading-relaxed text-slate-300">Find relevant Government Gazette estate notices and set a precise alert by South African identity number, surname or province. EstateWatch helps you take a clear next step.</p><button onClick={() => setActiveTab('alerts')} className="mt-3 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400">Start Alert</button></section>}
+          {geoPage && <section className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-950/20 p-5"><p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Built for South Africa</p><h1 className="mt-1 text-xl font-bold text-white">Deceased estate alerts in {geoPage.name}</h1><p className="mt-2 max-w-2xl text-xs leading-relaxed text-slate-300">Find relevant Government Gazette estate notices and set a precise alert by South African identity number, surname or province. <BrandName /> helps you take a clear next step.</p><button onClick={() => setActiveTab('alerts')} className="mt-3 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400">Start Alert</button></section>}
 
           {activeTab === 'dashboard' && (
             <DashboardView
@@ -341,6 +355,7 @@ export function App() {
           {activeTab === 'estates' && (
             <EstatesFeedView
               estates={estates}
+              isLoading={estatesLoading}
               onSelectEstate={setSelectedEstate}
               onAddToPipeline={handleAddToPipeline}
               pipelineEstateIds={pipelineEstateIds}
@@ -363,6 +378,8 @@ export function App() {
           {activeTab === 'pipeline' && (
             <PipelineCrmView
               pipeline={pipeline}
+              isSignedIn={Boolean(currentUser)}
+              onRequestSignIn={() => setShowLoginModal(true)}
               onUpdateStage={handleUpdatePipelineStage}
               onUpdateNotes={handleUpdatePipelineNotes}
               onRemoveItem={handleRemovePipelineItem}
@@ -401,17 +418,33 @@ export function App() {
             )
           )}
 
+          {activeTab === 'adminSettings' && (
+            currentUser?.role === 'admin' ? <AdminSettingsView /> : (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
+                <Bot className="w-12 h-12 text-amber-400 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">Admin Access Required</h3>
+                <p className="text-slate-400 mb-6">You need administrator privileges to access these settings.</p>
+                <button onClick={() => setShowLoginModal(true)} className="bg-amber-500 text-slate-950 px-6 py-2 rounded-xl font-semibold hover:bg-amber-400">
+                  Login as Admin
+                </button>
+              </div>
+            )
+          )}
+
           {activeTab === 'popia' && (
             <PopiaComplianceView />
           )}
 
           {activeTab === 'billing' && (
-            <BillingView isAdmin={currentUser?.role === 'admin'} subscriptionActive={currentUser?.subscriptionActive} subscriptionStatus={currentUser?.subscriptionStatus} subscriptionExpiresAt={currentUser?.subscriptionExpiresAt} />
+            <BillingView isAdmin={currentUser?.role === 'admin'} isSignedIn={Boolean(currentUser)} subscriptionActive={currentUser?.subscriptionActive} subscriptionStatus={currentUser?.subscriptionStatus} subscriptionExpiresAt={currentUser?.subscriptionExpiresAt} selection={billingSelection} onSelectionChange={setBillingSelection} onRequestSignIn={(selection) => { setBillingSelection(selection); setBillingLoginPending(true); setShowLoginModal(true); }} />
           )}
 
         </main>
 
       </div>
+      </>}
+
+      <EstateWatchFooter />
 
       {/* Detail Modal */}
       {selectedEstate && (
@@ -430,6 +463,7 @@ export function App() {
           isSignedIn={Boolean(currentUser)}
           canViewOriginal={currentUser?.role === 'admin' || currentUser?.subscriptionActive === true}
           onViewPlans={() => { setSelectedEstate(null); setActiveTab('billing'); }}
+          onRequestSignIn={() => setShowLoginModal(true)}
         />
       )}
 
@@ -438,8 +472,10 @@ export function App() {
         <SimulateMatchModal
           onClose={() => setSimulateModalOpen(false)}
           onSimulate={handleSimulateMatch}
+          alerts={alerts}
         />
       )}
+      {simulationError && <div role="alert" className="fixed bottom-5 left-5 z-50 max-w-md rounded-xl border border-rose-500/50 bg-slate-900 px-4 py-3 text-xs text-rose-300 shadow-2xl">{simulationError}</div>}
 
       {/* Live Email & WhatsApp Notification Toast */}
       {toastNotification && (
@@ -497,14 +533,22 @@ export function App() {
         onLogin={(account) => {
           setCurrentUser(account);
           setCurrentRole(account.userPersona);
+          if (billingLoginPending) { setActiveTab('billing'); setBillingLoginPending(false); }
+          else setActiveTab('dashboard');
           setShowLoginModal(false);
           void fetchAlerts().then((items) => { if (items) setAlerts(items); });
           void fetchEstates().then((items) => { if (items) setEstates(items); });
+          void fetchPipeline().then((items) => { if (items) setPipeline(items); });
+          void fetchNotifications().then((items) => { if (items) setNotifications(items); });
         }}
         onLogout={async () => {
           await signOutFromNeon();
           setCurrentUser(null);
           setCurrentRole('attorney');
+          setActiveTab('estates');
+          setPipeline([]);
+          setAlerts([]);
+          setNotifications([]);
         }}
       />
 

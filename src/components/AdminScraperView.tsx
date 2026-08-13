@@ -302,7 +302,7 @@ export const AdminScraperView: React.FC<AdminScraperViewProps> = ({ onPublishEst
           }`}>
             <Database className="w-5 h-5 text-emerald-400 shrink-0" />
             <div>
-              <div className="text-xs font-bold text-white">4. Neon DB Ingest</div>
+              <div className="text-xs font-bold text-white">4. PostgreSQL Ingest</div>
               <div className="text-[10px] text-slate-400">Structured JSON record</div>
             </div>
           </div>
@@ -453,7 +453,7 @@ export const AdminScraperView: React.FC<AdminScraperViewProps> = ({ onPublishEst
               <div>
                 <h3 className="font-bold text-base text-white">Extracted Estate JSON Result</h3>
                 <p className="text-xs text-slate-400">
-                  Ready to be saved into PostgreSQL Neon DB and matched against active client alerts
+                  Ready to be saved into PostgreSQL and matched against active client alerts
                 </p>
               </div>
             </div>

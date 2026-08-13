@@ -13,6 +13,7 @@ import {
   HelpCircle,
   Bot
 } from 'lucide-react';
+import { BrandName } from './BrandName';
 
 export type TabType =
   | 'dashboard'
@@ -100,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="hidden lg:block bg-gradient-to-b from-slate-950 to-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
           <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold">
             <Sparkles className="w-4 h-4" />
-            <span>Why EstateWatch?</span>
+            <span>Why <BrandName />?</span>
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
             We help you spot relevant deceased-estate notices and take a clear next step.

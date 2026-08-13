@@ -35,14 +35,21 @@ export async function runIngestion(options: { sourceUrls?: string[] } = {}): Pro
     result.errors.push({ url: 'ingestion', error: 'Another Gazette ingestion run is already active' });
     return result;
   }
+  await query(`CREATE TABLE IF NOT EXISTS ingestion_runs (
+    ingestion_id VARCHAR(100) PRIMARY KEY,
+    started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(30) NOT NULL,
+    error TEXT
+  )`);
+  await query('INSERT INTO ingestion_runs(ingestion_id,status) VALUES($1,$2) ON CONFLICT(ingestion_id) DO NOTHING', [result.ingestionId, 'running']);
   try {
   let gazettes: GazetteItem[];
   try {
-    gazettes = (await discoverGazettes(createFirecrawlClient(), { maxPages: 10 })).gazettes;
     if (options.sourceUrls?.length) {
-      const requested = new Set(options.sourceUrls);
-      gazettes = gazettes.filter((gazette) => requested.has(gazette.downloadUrl));
-      if (!gazettes.length) throw new Error('None of the requested source URLs were found in current J193 discovery');
+      gazettes = options.sourceUrls.map(buildManualGazetteItem);
+    } else {
+      gazettes = (await discoverGazettes(createFirecrawlClient(), { maxPages: 10 })).gazettes;
     }
   } catch (error: any) {
     result.status = 'flagged'; result.errors.push({ url: 'discovery', error: error.message }); return result;
@@ -50,10 +57,29 @@ export async function runIngestion(options: { sourceUrls?: string[] } = {}): Pro
   result.stats.totalGazettes = gazettes.length;
   for (const gazette of gazettes) await processGazette(gazette, result);
   if (result.errors.length && !result.stats.estatesCreated) result.status = 'flagged';
+  await query('UPDATE ingestion_runs SET status=$1,completed_at=NOW(),error=$2 WHERE ingestion_id=$3', [result.status, result.errors.map((entry) => `${entry.url}: ${entry.error}`).join('; ') || null, result.ingestionId]);
   return result;
   } finally {
+    if (result.status === 'flagged') await query('UPDATE ingestion_runs SET status=$1,completed_at=NOW(),error=$2 WHERE ingestion_id=$3', ['flagged', result.errors.map((entry) => `${entry.url}: ${entry.error}`).join('; ') || 'Ingestion was flagged', result.ingestionId]).catch((error) => console.error('Could not record ingestion failure:', error));
     await releaseIngestionLease(runId).catch((error) => console.error('Could not release ingestion lease', error));
   }
+}
+
+function buildManualGazetteItem(sourceUrl: string): GazetteItem {
+  const parsed = new URL(sourceUrl);
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'archive.gazettes.africa' || !parsed.pathname.toLowerCase().endsWith('.pdf')) {
+    throw new Error('Manual source URLs must be HTTPS Gazette PDFs hosted on archive.gazettes.africa');
+  }
+  const dateMatch = parsed.pathname.match(/dated-(\d{4}-\d{2}-\d{2})-no-/i);
+  if (!dateMatch) throw new Error(`Could not determine the publication date from ${sourceUrl}`);
+  const numberMatch = parsed.pathname.match(/-no-(.+)\.pdf$/i);
+  const number = numberMatch?.[1]?.replace(/-/g, ' ') || 'unknown';
+  return {
+    title: `South Africa Government Gazette Legal Notices A dated ${dateMatch[1]} number ${number}`,
+    datePublished: dateMatch[1],
+    downloadUrl: sourceUrl,
+    page: 1,
+  };
 }
 
 function gazetteNumber(title: string): string {
@@ -97,7 +123,7 @@ async function processGazette(gazette: GazetteItem, result: IngestResult) {
   }
 }
 
-async function loadAlerts(): Promise<AlertCriteria[]> {
+export async function loadAlerts(): Promise<AlertCriteria[]> {
   const rows = (await query("SELECT * FROM alerts WHERE is_active=TRUE AND delivery_state='active' AND owner_id IS NOT NULL")).rows;
   return rows.map((row: any) => ({ id: row.id, name: row.name, surnameMatch: row.surname_match || undefined, idNumberHash: row.id_number_hash || undefined, idNumberMatchMasked: row.id_number_match_masked || undefined, provinces: row.provinces || [], districts: row.districts || [], valueBands: row.value_bands || [], assetTypes: row.asset_types || [], executorStatus: row.executor_status || [], channels: row.channels || [], isActive: row.is_active, matchCount: row.match_count, createdAt: row.created_at, recipientEmail: row.recipient_email, recipientPhone: row.recipient_phone, ownerName: row.owner_name }));
 }

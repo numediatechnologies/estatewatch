@@ -54,7 +54,7 @@ const postAuthJson: AuthTransport = (url, body, _origin) => new Promise((resolve
     });
   });
   request.on('error', reject);
-  request.setTimeout(15_000, () => request.destroy(new Error('Neon Auth request timed out')));
+  request.setTimeout(15_000, () => request.destroy(new Error('Authentication service request timed out')));
   request.end(payload);
 });
 
@@ -113,8 +113,8 @@ export function clearSessionCookie(res: Response) {
 
 export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { email: string; password: string; name?: string; firstName?: string; surname?: string; companyName?: string; phone?: string }, transport: AuthTransport = postAuthJson) {
   // Use the canonical production origin for verification redirects. The
-  // temporary Vercel alias is not a trusted Neon Auth origin.
-  // Neon Auth's email signup schema still requires its legacy `name` field.
+  // The temporary Vercel alias is not a trusted authentication origin.
+  // The provider's email signup schema still requires its legacy `name` field.
   // Keep the UI and profile data split while sending the provider one derived
   // display name for compatibility.
   const requestBody = mode === 'sign-up'
@@ -122,7 +122,7 @@ export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { 
     : body;
   const result = await callNeonAuth(`${mode}/email`, requestBody, transport);
   const user = result.user;
-  if (!user?.id || !user?.email) throw new Error(mode === 'sign-up' ? 'Check your email to verify the new account before signing in.' : 'Neon did not return a verified user.');
+  if (!user?.id || !user?.email) throw new Error(mode === 'sign-up' ? 'Check your email to verify the new account before signing in.' : 'The authentication service did not return a verified user.');
   const email = String(user.email).toLowerCase();
   const role = roleForEmail(email);
   const firstName = body.firstName?.trim() || undefined;
@@ -144,9 +144,10 @@ export async function authenticateWithNeon(mode: 'sign-in' | 'sign-up', body: { 
 }
 
 export async function requestPasswordResetWithNeon(email: string, transport: AuthTransport = postAuthJson) {
-  // Better Auth validates callback destinations against trusted origins. A
-  // relative callback stays on the requesting EstateWatch origin in every env.
-  const redirectTo = '/?reset-password=1';
+  // Better Auth validates callback destinations against its trusted-origin
+  // list. Use the canonical absolute URL so the link returns to EstateWatch
+  // in production and local development alike.
+  const redirectTo = new URL('/?reset-password=1', applicationUrl()).toString();
   await callNeonAuth('request-password-reset', { email, redirectTo }, transport);
 }
 

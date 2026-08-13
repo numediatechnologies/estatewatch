@@ -52,14 +52,31 @@ pipelineRouter.get('/', async (req, res) => {
 
 pipelineRouter.post('/', validate(pipelineCreateSchema), async (req, res) => {
   try {
+    const session = sessionOr401(req, res);
+    if (!session) return;
     const p = req.body;
     const id = p.id || `pip-${Date.now()}`;
-    await query(
-      `INSERT INTO pipeline (id, estate_id, stage, notes, value_estimate, priority, tags, updated_at, follow_up_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       ON CONFLICT (id) DO UPDATE SET stage = EXCLUDED.stage, notes = EXCLUDED.notes, updated_at = EXCLUDED.updated_at, follow_up_at = EXCLUDED.follow_up_at;`,
-      [id, p.estateId, p.stage, p.notes || '', p.valueEstimate || 0, p.priority, p.tags || [], p.updatedAt || new Date().toISOString().substring(0, 10), p.followUpAt || null]
-    );
+    const existing = await query('SELECT owner_id FROM pipeline WHERE id=$1', [id]);
+    if (existing.rows[0] && session.role !== 'admin' && existing.rows[0].owner_id !== session.sub) {
+      return res.status(404).json({ error: 'Saved opportunity not found' });
+    }
+    if (existing.rows[0]) {
+      await query(
+        `UPDATE pipeline SET estate_id=$1, stage=$2, notes=$3, value_estimate=$4, priority=$5, tags=$6, updated_at=$7, follow_up_at=$8
+         WHERE id=$9 AND ($10='admin' OR owner_id=$11)`,
+        [p.estateId, p.stage, p.notes || '', p.valueEstimate || 0, p.priority, p.tags || [], p.updatedAt || new Date().toISOString().substring(0, 10), p.followUpAt || null, id, session.role, session.sub]
+      );
+    } else {
+      await query(
+        `INSERT INTO pipeline (id, estate_id, stage, notes, value_estimate, priority, tags, updated_at, follow_up_at, owner_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
+        [id, p.estateId, p.stage, p.notes || '', p.valueEstimate || 0, p.priority, p.tags || [], p.updatedAt || new Date().toISOString().substring(0, 10), p.followUpAt || null, session.sub]
+      );
+      if (session.role !== 'admin' && session.subscriptionActive !== true) {
+        const count = Number((await query('SELECT count(*)::int AS count FROM pipeline WHERE owner_id=$1',[session.sub]) as any)?.rows?.[0]?.count || 0);
+        if (count > 3) { await query('DELETE FROM pipeline WHERE id=$1 AND owner_id=$2',[id,session.sub]); return res.status(403).json({ code:'FREE_PIPELINE_LIMIT', error:'The free tier allows three saved opportunities. Upgrade to save more.' }); }
+      }
+    }
     res.status(201).json({ id, ...p });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -68,6 +85,8 @@ pipelineRouter.post('/', validate(pipelineCreateSchema), async (req, res) => {
 
 pipelineRouter.patch('/:id', validate(pipelineUpdateSchema), async (req, res) => {
   try {
+    const session = sessionOr401(req, res);
+    if (!session) return;
     const { id } = req.params;
     const body = req.body;
     const updatedAt = new Date().toISOString().substring(0, 10);
@@ -78,9 +97,10 @@ pipelineRouter.patch('/:id', validate(pipelineUpdateSchema), async (req, res) =>
     if (body.valueEstimate !== undefined) { params.push(body.valueEstimate); queryText += `, value_estimate = $${params.length}`; }
     if (body.priority) { params.push(body.priority); queryText += `, priority = $${params.length}`; }
     if (body.followUpAt !== undefined) { params.push(body.followUpAt); queryText += `, follow_up_at = $${params.length}`; }
-    params.push(id);
-    queryText += ` WHERE id = $${params.length}`;
-    await query(queryText, params);
+    params.push(id, session.role, session.sub);
+    queryText += ` WHERE id = $${params.length - 2} AND ($${params.length - 1}='admin' OR owner_id=$${params.length})`;
+    const result = await query(queryText, params);
+    if (!result.rowCount) return res.status(404).json({ error: 'Saved opportunity not found' });
     res.json({ id, ...body, updatedAt });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -89,8 +109,11 @@ pipelineRouter.patch('/:id', validate(pipelineUpdateSchema), async (req, res) =>
 
 pipelineRouter.delete('/:id', async (req, res) => {
   try {
+    const session = sessionOr401(req, res);
+    if (!session) return;
     const { id } = req.params;
-    await query('DELETE FROM pipeline WHERE id = $1', [id]);
+    const result = await query('DELETE FROM pipeline WHERE id = $1 AND ($2=\'admin\' OR owner_id=$3)', [id, session.role, session.sub]);
+    if (!result.rowCount) return res.status(404).json({ error: 'Saved opportunity not found' });
     res.json({ success: true, id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

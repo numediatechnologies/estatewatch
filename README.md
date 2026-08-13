@@ -24,7 +24,7 @@ Every EstateWatch workflow is treated as mission-critical: alerts, ingestion, no
 
 ## Production workflow
 
-1. Vercel Cron calls `GET /api/cron/ingest` at 04:30 UTC Monday–Saturday.
+1. Vercel Cron calls `GET /api/cron/ingest` twice daily Monday–Saturday, with watchdog checks shortly after each slot.
 2. Firecrawl **Scrape** reads the paginated `J193` search result pages on Gazettes.Africa. Firecrawl Agent is not used.
 3. Only unseen direct PDF source URLs are processed.
 4. PDFs with embedded text are downloaded and extracted locally with `pdfjs-dist`.
@@ -32,7 +32,7 @@ Every EstateWatch workflow is treated as mission-critical: alerts, ingestion, no
 6. Valid records are stored, matched against active surname/province alerts, and sent through Resend.
 7. Unique issue, estate-source, and alert/estate/channel constraints make reruns idempotent.
 
-Discovery is treated as mission-critical. Each search page gets up to three bounded Firecrawl Scrape attempts with exponential backoff. Transient timeouts, rate limits and provider errors are retried; permanent client errors are not. If those attempts fail, EstateWatch makes one 15-second, no-credit request to the public Gazette search page and validates the same J193 structure before continuing. A 25-minute database lease prevents overlapping scheduled or manual runs. If both discovery paths fail, the cron endpoint returns a non-success HTTP status so Vercel records a failed invocation and sends a best-effort administrator incident email. It does not ingest partial or invented results, and the next scheduled run safely retries because completed source URLs remain deduplicated.
+Discovery is treated as mission-critical. Each search page gets up to three bounded Firecrawl Scrape attempts with exponential backoff. Transient timeouts, rate limits and provider errors are retried; permanent client errors are not. If those attempts fail, EstateWatch makes one 15-second, no-credit request to the public Gazette search page and validates the same J193 structure before continuing. A 25-minute database lease prevents overlapping scheduled or manual runs. If both discovery paths fail, the cron endpoint returns a non-success HTTP status so Vercel records a failed invocation and sends a best-effort administrator incident email. An administrator can supply a known official Gazette PDF URL to the protected manual ingestion endpoint, which bypasses discovery while preserving PDF validation, parser validation, deduplication and alert matching. A watchdog checks each scheduled slot and raises a critical incident if no completed run is recorded. Failed email notifications are retried automatically by the daily retry worker, up to five total attempts with a ten-minute cooldown; higher-frequency retries require a Vercel plan that supports sub-daily cron schedules. It does not ingest partial or invented results, and reruns safely preserve completed source URLs and alert/estate/channel uniqueness.
 
 Vercel Cron is the only production scheduler. Do not add a second GitHub Actions, Make.com or external scraping schedule: duplicate schedulers waste credits, create noisy failures and can overlap ingestion runs. GitHub Actions may still run offline tests, but it must not trigger Gazette discovery or ingestion.
 
@@ -41,7 +41,7 @@ Gazette notices do not reliably state estate value, asset type, property ownersh
 ## Requirements
 
 - Node.js 22 or newer
-- Neon PostgreSQL with Neon Auth enabled
+- Managed PostgreSQL with secure authentication enabled
 - Firecrawl API key
 - Resend API key and a verified sender domain
 - Vercel project for deployment and cron
@@ -64,7 +64,7 @@ Production database initialization is additive and never seeds demo rows. Fronte
 Server-only:
 
 ```text
-DATABASE_URL                 Neon pooled PostgreSQL connection string
+DATABASE_URL                 Pooled PostgreSQL connection string
 FIRECRAWL_API_KEY            Firecrawl server API key
 RESEND_API_KEY               Resend server API key
 RESEND_FROM                  e.g. EstateWatch <alerts@tenders.marketdirect.co.za>
@@ -80,11 +80,11 @@ APP_URL                      canonical public application URL
 ADMIN_API_TOKEN              bearer token for administrative APIs
 AUTH_SESSION_SECRET          signs HttpOnly application sessions
 IDENTITY_MATCH_SECRET        HMAC secret for privacy-preserving exact SA ID matching
-ADMIN_EMAIL                  verified Neon account granted administrator role
+ADMIN_EMAIL                  verified account granted administrator role
 CRON_SECRET                  Vercel Cron bearer secret
 ESTATEWATCH_ALERT_EMAIL      optional controlled-test fallback recipient
 INGESTION_INCIDENT_EMAIL     optional operations recipient; defaults to ADMIN_EMAIL
-NEON_AUTH_BASE_URL           Neon Auth server URL
+NEON_AUTH_BASE_URL           Authentication service URL
 ```
 
 Contact requests are written to the MarketDirect leads CRM before the sales email is sent. The CRM creates an open follow-up task; its existing daily reminder process sends email and, when Clickatell is configured, SMS reminders. If either CRM or email delivery fails, EstateWatch reports a retryable error rather than claiming success.
@@ -94,7 +94,7 @@ The public contact endpoint accepts only the documented enquiry types, applies f
 Build-time browser configuration:
 
 ```text
-VITE_NEON_AUTH_URL           Neon Auth public URL
+VITE_NEON_AUTH_URL           Authentication service public URL
 ```
 
 Optional local-only flags:
@@ -119,7 +119,7 @@ npm run seo:generate         # regenerate geographic sitemap URLs
 
 EstateWatch uses one canonical domain, `https://estatewatch.marketdirect.co.za`, with South African English metadata and geographic pages for all nine provinces and key Master’s Office cities. `npm run seo:generate` creates `public/sitemap.xml` from the shared location list used by the application. `public/robots.txt` points search engines to that sitemap and excludes API routes. Every geographic URL has a unique title, description, canonical URL, `en_ZA` social metadata and structured data naming MarketDirect.co.za as the service provider.
 
-Do not add estate-record detail URLs, identity numbers, alert criteria, account pages or API URLs to the sitemap. Geographic pages describe the service; they do not expose subscriber-only Gazette PDFs.
+The public sitemap is intentionally limited to geographic landing pages. Do not add person names, estate-record detail URLs, identity numbers, addresses, executor contact details, alert criteria, account pages or API URLs to the sitemap. A Government Gazette source being public does not by itself justify creating searchable person-by-town URLs; individual records remain outside public SEO and subscriber-only Gazette PDFs are never exposed through geographic pages.
 
 The live Firecrawl test consumes credits, requires `FIRECRAWL_API_KEY`, and is never part of the ordinary test command or CI by default.
 
@@ -152,12 +152,12 @@ The known launch fixture is Government Gazette 55077 part 1, published 31 July 2
 
 ## Email delivery
 
-Resend and ZeptoMail are used for EstateWatch transactional/operational email only: alerts, admin delivery tests, ingestion incident notices, and contact notifications. Authentication verification, password-reset, and other account emails remain handled by Neon Auth. In `auto` mode, Resend is tried first and ZeptoMail is used if Resend is unavailable or returns an error. Set `EMAIL_PROVIDER=zeptomail` to use ZeptoMail directly. Messages include a personalized or professional fallback greeting, exact match reasons, verified Gazette fields, masked identity data, source attribution, CTA, and POPIA footer. Each CTA deep-links to the exact persisted estate record (`?estate=<id>`), which opens the online detail view directly. Gazette-derived text is HTML-escaped. Notification state is recorded as `queued`, `sent`, or `failed`, including provider message ID, attempts, errors, and timestamps.
+Resend and ZeptoMail are used for EstateWatch transactional/operational email only: alerts, admin delivery tests, ingestion incident notices, and contact notifications. Authentication verification, password-reset, and other account emails remain handled by the secure authentication service. In `auto` mode, Resend is tried first and ZeptoMail is used if Resend is unavailable or returns an error. Set `EMAIL_PROVIDER=zeptomail` to use ZeptoMail directly. Messages include a personalized or professional fallback greeting, exact match reasons, verified Gazette fields, masked identity data, source attribution, CTA, and POPIA footer. Each CTA deep-links to the exact persisted estate record (`?estate=<id>`), which opens the online detail view directly. Gazette-derived text is HTML-escaped. Notification state is recorded as `queued`, `sent`, or `failed`, including provider message ID, attempts, errors, and timestamps.
 
 The current sender domain must have verified SPF and DKIM. Click tracking remains disabled while its tracking DNS record is unresolved.
 
 ## Release gates
 
-Deploy Preview first and verify tests, TypeScript, build, migrations, `/api/health`, unauthorized `401` responses, Neon Auth registration/sign-in/session/logout/password-reset flows, Firecrawl discovery, Gazette 55077 parsing, alert matching, one authorized Resend delivery, and duplicate suppression. Promote that tested revision to Production only after all checks pass, then verify the custom domain and cron configuration.
+Deploy Preview first and verify tests, TypeScript, build, migrations, `/api/health`, unauthorized `401` responses, registration/sign-in/session/logout/password-reset flows, Firecrawl discovery, Gazette 55077 parsing, alert matching, one authorized Resend delivery, and duplicate suppression. Promote that tested revision to Production only after all checks pass, then verify the custom domain and cron configuration.
 
 POPIA/legal review remains a commercial-launch requirement even after technical deployment.

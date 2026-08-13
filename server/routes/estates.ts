@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { query } from '../db.js';
 import { estateSchema } from '../types.js';
 import { mapEstateRow, mapEstatePreview } from '../mappers.js';
-import { getEntitlement } from '../entitlements.js';
+import { consumeEstateView, getEntitlement } from '../entitlements.js';
 import { validate } from '../validate.js';
 import { readSession } from '../auth.js';
 import { liveEstatePredicate, isWithinLiveWindow } from '../estateRetention.js';
@@ -23,13 +23,6 @@ estatesRouter.get('/:id/source', async (req, res) => {
   try {
     const session = readSession(req);
     if (!session) return res.status(401).json({ error: 'Sign in to view the original Gazette PDF' });
-    let entitled = session.role === 'admin';
-    if (!entitled) {
-      const profile = await query(`SELECT subscription_status,subscription_expires_at FROM user_profiles WHERE auth_subject=$1`, [session.sub]);
-      const row = profile.rows[0];
-      entitled = row?.subscription_status === 'active' && (!row.subscription_expires_at || new Date(row.subscription_expires_at) > new Date());
-    }
-    if (!entitled) return res.status(403).json({ error: 'An active subscription is required to view the original Gazette PDF' });
     const result = await query(`SELECT source_url FROM estates e WHERE e.id=$1 AND ${liveEstatePredicate('e')}`, [req.params.id]);
     if (!result.rows[0]) return res.status(404).json({ error: 'Estate record not found' });
     if (!result.rows[0].source_url) return res.status(404).json({ error: 'Original Gazette PDF is not available for this record' });
@@ -41,7 +34,13 @@ estatesRouter.get('/:id', async (req, res) => {
   try {
     const result = await query(`SELECT * FROM estates e WHERE e.id = $1 AND ${liveEstatePredicate('e')}`, [req.params.id]);
     if (!result.rows[0]) return res.status(404).json({ error: 'Estate record not found' });
-    const entitled = (await getEntitlement(readSession(req))).active;
+    const session = readSession(req);
+    const entitlement = await getEntitlement(session);
+    if (session && session.role !== 'admin' && !entitlement.active) {
+      const views = await consumeEstateView(session.sub);
+      if (views > entitlement.limits.estateViewsPerMonth) return res.status(403).json({ code:'FREE_ESTATE_VIEW_LIMIT', error:'You have reached the free-tier limit of 10 estate-notice views this month.' });
+    }
+    const entitled = entitlement.active;
     res.json(entitled ? mapEstateRow(result.rows[0]) : mapEstatePreview(result.rows[0]));
   } catch (err: any) {
     res.status(500).json({ error: err.message });

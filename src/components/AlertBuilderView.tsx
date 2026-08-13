@@ -28,6 +28,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
   const [recipientEmail, setRecipientEmail] = useState(defaultRecipientEmail);
   const [smsEnabled, setSmsEnabled] = useState(false);
   const [recipientPhone, setRecipientPhone] = useState('');
+  const [preserveExistingPhone, setPreserveExistingPhone] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [error, setError] = useState('');
   const [sortBy, setSortBy] = useState<'active' | 'name' | 'created' | 'matches'>('active');
@@ -49,6 +50,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
     setRecipientEmail(defaultRecipientEmail);
     setSmsEnabled(false);
     setRecipientPhone('');
+    setPreserveExistingPhone(false);
   };
 
   const startEditing = (alert: AlertCriteria) => {
@@ -58,8 +60,10 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
     setIdNumberMatch('');
     setSelectedProvinces(alert.provinces);
     setRecipientEmail(alert.recipientEmail || defaultRecipientEmail);
-    setSmsEnabled(alert.channels.includes('sms') && Boolean(alert.recipientPhone && !alert.recipientPhone.startsWith('***')));
-    setRecipientPhone(alert.recipientPhone?.startsWith('***') ? '' : (alert.recipientPhone || ''));
+    const savedPhoneIsMasked = Boolean(alert.recipientPhone?.startsWith('***'));
+    setSmsEnabled(alert.channels.includes('sms'));
+    setPreserveExistingPhone(savedPhoneIsMasked);
+    setRecipientPhone(savedPhoneIsMasked ? '' : (alert.recipientPhone || ''));
     setError('');
   };
 
@@ -81,7 +85,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
     event.preventDefault();
     setError('');
     if (!alertName.trim() || !recipientEmail.trim()) return;
-    if (smsEnabled && !recipientPhone.trim()) {
+    if (smsEnabled && !recipientPhone.trim() && !preserveExistingPhone) {
       setError('Enter a mobile number before enabling SMS.');
       return;
     }
@@ -99,7 +103,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
       matchCount: existing?.matchCount || 0,
       createdAt: existing?.createdAt || new Date().toISOString().split('T')[0],
       recipientEmail: recipientEmail.trim().toLowerCase(),
-      recipientPhone: smsEnabled ? recipientPhone.trim() : undefined,
+      recipientPhone: smsEnabled ? (recipientPhone.trim() || (preserveExistingPhone ? existing?.recipientPhone : undefined)) : undefined,
       ownerName: defaultOwnerName || undefined,
     };
     const ok = editingAlertId ? await onUpdateAlert(payload) : await onCreateAlert(payload);
@@ -153,11 +157,11 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
         <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
           <label className="flex items-center justify-between gap-3 text-xs font-bold text-slate-300">
             <span className="flex items-center gap-2"><Smartphone className="w-4 h-4 text-purple-400" />Also send an SMS</span>
-            <input type="checkbox" checked={smsEnabled} onChange={(event) => setSmsEnabled(event.target.checked)} className="accent-amber-500" />
+            <input type="checkbox" checked={smsEnabled} onChange={(event) => { setSmsEnabled(event.target.checked); if (!event.target.checked) setPreserveExistingPhone(false); }} className="accent-amber-500" />
           </label>
           {smsEnabled && <label className="text-xs font-bold text-slate-300 block">Mobile number in international format *
-            <input type="tel" value={recipientPhone} onChange={(event) => setRecipientPhone(event.target.value)} placeholder="27610421779" pattern="\+?[0-9]{10,15}" required className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:border-amber-500" />
-            <span className="block mt-1 font-normal text-slate-500">SMS delivery is best-effort. A failure never prevents the email alert.</span>
+            <input type="tel" value={recipientPhone} onChange={(event) => { setRecipientPhone(event.target.value); setPreserveExistingPhone(false); }} placeholder={preserveExistingPhone ? `Saved number ending ${alerts.find(alert => alert.id === editingAlertId)?.recipientPhone?.slice(-4) || '••••'}` : '27610421779'} pattern="\+?[0-9]{10,15}" required={!preserveExistingPhone} className="mt-1 w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:border-amber-500" />
+            <span className="block mt-1 font-normal text-slate-500">{preserveExistingPhone ? 'The saved number will be kept unless you enter a replacement.' : 'SMS delivery is best-effort. A failure never prevents the email alert.'}</span>
           </label>}
         </div>
         <div className="space-y-2">

@@ -32,6 +32,22 @@ describe('Firecrawl API', () => {
     expect(response.body.error).toContain('Sign in');
   });
 
+  it('rejects estate writes from non-admin sessions', async () => {
+    const previousSecret = process.env.AUTH_SESSION_SECRET;
+    process.env.AUTH_SESSION_SECRET = 'estate-write-test-session-secret';
+    const app = createApp({ discover: vi.fn(), createClient: () => ({}) as FirecrawlDiscoveryClient, ingest: vi.fn() });
+    const userToken = createSessionToken({ sub: 'user-1', email: 'user@example.com', name: 'User', role: 'user' });
+    const response = await request(app).post('/api/estates').set('Cookie', `estatewatch_session=${userToken}`).send({
+      sourceId: 'source-1', deceasedName: 'TEST, PERSON', idNumberMasked: '760518****088', dateOfDeath: '2026-01-01', gazetteDate: '2026-01-02',
+      province: 'Gauteng', district: 'Johannesburg', masterOffice: 'Johannesburg', estateNumber: '00001/2026', executorName: 'Unknown',
+      executorContact: 'Unknown', executorEmail: '', valueBand: 'Unknown', assetTypes: ['other'], rawNoticeSnippet: 'preview', gazetteRef: 'Gazette 1',
+      status: 'pending', hasProperty: false,
+    });
+    expect(response.status).toBe(403);
+    if (previousSecret === undefined) delete process.env.AUTH_SESSION_SECRET;
+    else process.env.AUTH_SESSION_SECRET = previousSecret;
+  });
+
   it('protects Firecrawl endpoints when an admin token is configured', async () => {
     const previous = process.env.ADMIN_API_TOKEN;
     process.env.ADMIN_API_TOKEN = 'test-secret';
@@ -40,6 +56,21 @@ describe('Firecrawl API', () => {
     expect((await request(app).post('/api/ingest-gazettes')).status).toBe(401);
     if (previous === undefined) delete process.env.ADMIN_API_TOKEN;
     else process.env.ADMIN_API_TOKEN = previous;
+  });
+
+  it('protects the live alert simulation and does not permit user-triggered sends', async () => {
+    const previousAdminToken = process.env.ADMIN_API_TOKEN;
+    const previousSecret = process.env.AUTH_SESSION_SECRET;
+    process.env.ADMIN_API_TOKEN = 'simulation-admin-token';
+    process.env.AUTH_SESSION_SECRET = 'simulation-test-session-secret';
+    const app = createApp({ discover: vi.fn(), createClient: () => ({}) as FirecrawlDiscoveryClient, ingest: vi.fn() });
+    const userToken = createSessionToken({ sub: 'user-1', email: 'user@example.com', name: 'User', role: 'user' });
+    const response = await request(app).post('/api/simulate-match').set('Cookie', `estatewatch_session=${userToken}`).send({});
+    expect(response.status).toBe(401);
+    if (previousAdminToken === undefined) delete process.env.ADMIN_API_TOKEN;
+    else process.env.ADMIN_API_TOKEN = previousAdminToken;
+    if (previousSecret === undefined) delete process.env.AUTH_SESSION_SECRET;
+    else process.env.AUTH_SESSION_SECRET = previousSecret;
   });
 
   it('allows a signed administrator session and rejects a signed user session', async () => {

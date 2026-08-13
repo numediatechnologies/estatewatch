@@ -6,7 +6,7 @@ import { MatchResult } from './matching.js';
 import { getEntitlement } from './entitlements.js';
 import { recordAuditEvent } from './audit.js';
 import { recordOperationalIncident } from './operationalIncidents.js';
-import { isWithinLiveWindow } from './estateRetention.js';
+import { liveEstatePredicate, isWithinLiveWindow } from './estateRetention.js';
 
 export interface DispatchedEvent {
   id: string;
@@ -20,6 +20,42 @@ export interface DispatchedEvent {
   status: string;
   recipient: string;
   emailPreviewUrl?: string;
+}
+
+async function retryEmailNotification(row: any): Promise<boolean> {
+  const emailResult = await sendEstateAlertEmail({
+    to: row.recipient,
+    subject: `[EstateWatch Alert] Match Found: ${row.deceased_name} (${row.estate_number})`,
+    estateId: row.estate_id, estateName: row.deceased_name, estateNumber: row.estate_number,
+    province: row.province, district: row.district, valueBand: row.value_band,
+    executorName: row.executor_name, executorContact: row.executor_contact, executorEmail: row.executor_email,
+    gazetteRef: row.gazette_ref, rawSnippet: row.raw_notice_snippet, alertName: row.alert_name,
+    idNumberMasked: row.id_number_masked, dateOfDeath: row.date_of_death, gazetteDate: row.gazette_date,
+    claimPeriodDays: row.claim_period_days, sourceUrl: row.source_url,
+  });
+  await query(`UPDATE notifications SET status=$1,provider_message_id=$2,error=$3,attempts=attempts+1,last_attempt_at=NOW(),sent_at=$4 WHERE id=$5`, [
+    emailResult.success ? 'sent' : 'failed', emailResult.success ? emailResult.messageId : null,
+    emailResult.success ? null : emailResult.error, new Date().toISOString().replace('T', ' ').substring(0, 16), row.id]);
+  if (!emailResult.success) await recordOperationalIncident({
+    type: 'alert_delivery_failure', severity: 'high', summary: `Automatic retry failed for ${row.alert_name}`,
+    detail: emailResult.error, alertId: row.alert_id, estateId: row.estate_id, notificationId: row.id,
+    providerAttempts: emailResult.attempts, dedupeKey: `alert-email-auto-retry:${row.alert_id}:${row.estate_id}`,
+  });
+  return emailResult.success;
+}
+
+export async function retryFailedEmailNotifications(limit = 25) {
+  const result = await query(`SELECT n.*, e.* FROM notifications n
+    JOIN estates e ON e.id=n.estate_id
+    WHERE n.channel='email' AND n.status='failed' AND n.attempts < 5
+      AND (n.last_attempt_at IS NULL OR n.last_attempt_at < NOW() - INTERVAL '10 minutes')
+      AND ${liveEstatePredicate('e')}
+    ORDER BY n.last_attempt_at NULLS FIRST, n.sent_at ASC LIMIT $1`, [Math.min(Math.max(limit, 1), 100)]);
+  let sent = 0;
+  for (const row of result.rows) {
+    if (await retryEmailNotification(row)) sent++;
+  }
+  return { attempted: result.rows.length, sent, remaining: result.rows.length - sent };
 }
 
 export async function recordMatches(
@@ -54,7 +90,7 @@ export async function recordMatches(
          ON CONFLICT (alert_id, estate_id, channel) DO NOTHING;`,
         [event.id, match.alertId, match.alertName, estate.id, estate.deceasedName, estate.estateNumber, event.channel, sentAt, event.status, event.recipient]
       );
-      return (inserted.rowCount || 0) > 0;
+      return Boolean(inserted && (inserted.rowCount || 0) > 0);
     };
 
     const emailRecipient = recipientOverride || match.recipientEmail || '';
@@ -74,7 +110,7 @@ export async function recordMatches(
             claimPeriodDays: estate.claimPeriodDays, sourceUrl: estate.sourceUrl,
           });
           emailEvent.status = emailResult.success ? 'sent' : 'failed';
-          await query('UPDATE notifications SET status=$1,provider_message_id=$2,error=$3,attempts=attempts+1 WHERE alert_id=$4 AND estate_id=$5 AND channel=$6', [emailEvent.status, emailResult.success ? emailResult.messageId : null, emailResult.success ? null : emailResult.error, match.alertId, estate.id, 'email']);
+          await query('UPDATE notifications SET status=$1,provider_message_id=$2,error=$3,attempts=attempts+1,last_attempt_at=NOW() WHERE alert_id=$4 AND estate_id=$5 AND channel=$6', [emailEvent.status, emailResult.success ? emailResult.messageId : null, emailResult.success ? null : emailResult.error, match.alertId, estate.id, 'email']);
           if (emailResult.success) await query('UPDATE alerts SET match_count=match_count+1,last_triggered=$1 WHERE id=$2', [sentAt, match.alertId]);
           if (!emailResult.success) await recordOperationalIncident({
             type: 'alert_delivery_failure', severity: 'high', summary: `Email alert failed for ${match.alertName}`,
@@ -90,8 +126,15 @@ export async function recordMatches(
       }
       } catch (error) {
         console.error('Failed to record email notification:', error);
+        emailEvent.status = 'failed';
+        try {
+          await query('UPDATE notifications SET status=$1,error=$2,attempts=attempts+1 WHERE alert_id=$3 AND estate_id=$4 AND channel=$5', ['failed', error instanceof Error ? error.message : String(error), match.alertId, estate.id, 'email']);
+        } catch (updateError) {
+          console.error('Failed to mark email notification as failed:', updateError);
+        }
+        events.push(emailEvent);
         await recordOperationalIncident({ type: 'alert_delivery_failure', severity: 'high', summary: `Email alert processing failed for ${match.alertName}`, detail: error instanceof Error ? error.message : String(error), alertId: match.alertId, estateId: estate.id, notificationId: emailEvent.id, dedupeKey: `alert-email-processing:${match.alertId}:${estate.id}` });
-    }
+      }
 
     if (match.channels.includes('sms') && (ownerRow.role === 'admin' || ownerRow.phone_verified_at)) {
       const smsRecipient = match.recipientPhone || '';

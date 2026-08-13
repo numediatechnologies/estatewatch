@@ -2,7 +2,7 @@ import { query } from './db.js';
 import { identityFingerprint, isValidSouthAfricanId, scrubIdentityNumbers } from './identity.js';
 
 export async function initializeDatabase() {
-  console.log('⚡ Initializing Neon PostgreSQL Database Schema...');
+  console.log('⚡ Initializing PostgreSQL Database Schema...');
 
   try {
     await query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
@@ -84,9 +84,12 @@ export async function initializeDatabase() {
         priority VARCHAR(50) DEFAULT 'medium',
         tags TEXT[],
         updated_at VARCHAR(50),
-        follow_up_at VARCHAR(50)
+        follow_up_at VARCHAR(50),
+        owner_id VARCHAR(255)
       );
       ALTER TABLE pipeline ADD COLUMN IF NOT EXISTS follow_up_at VARCHAR(50);
+      ALTER TABLE pipeline ADD COLUMN IF NOT EXISTS owner_id VARCHAR(255);
+      CREATE INDEX IF NOT EXISTS pipeline_owner_updated_idx ON pipeline(owner_id, updated_at DESC);
     `);
 
     // 4. Notifications Table
@@ -138,6 +141,8 @@ export async function initializeDatabase() {
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(30) NOT NULL DEFAULT 'inactive';
       ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(30) NOT NULL DEFAULT 'free';
+      CREATE TABLE IF NOT EXISTS billing_usage_monthly (user_id VARCHAR(255) NOT NULL REFERENCES user_profiles(auth_subject) ON DELETE CASCADE, usage_month DATE NOT NULL, estate_views INT NOT NULL DEFAULT 0, pipeline_opportunities INT NOT NULL DEFAULT 0, updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(), PRIMARY KEY (user_id, usage_month));
       CREATE TABLE IF NOT EXISTS registration_verifications (
         id UUID PRIMARY KEY,
         email VARCHAR(255) NOT NULL,

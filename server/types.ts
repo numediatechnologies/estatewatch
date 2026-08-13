@@ -163,6 +163,10 @@ export const estateSchema = z
   })
   .strict();
 
+export const simulationSchema = estateSchema.extend({
+  testAlertId: z.string().min(1).optional(),
+});
+
 export const alertSchema = z
   .object({
     id: z.string().min(1).optional(),
@@ -180,7 +184,7 @@ export const alertSchema = z
     lastTriggered: z.string().max(50).nullable().optional(),
     createdAt: z.string().max(50).optional(),
     recipientEmail: z.string().email().optional(),
-    recipientPhone: z.string().regex(/^\+?[0-9]{10,15}$/).optional(),
+    recipientPhone: z.string().regex(/^(\+?[0-9]{10,15}|\*{3}[0-9]{4})$/).optional(),
     ownerName: z.string().max(255).optional(),
   })
   .strict();
@@ -196,6 +200,8 @@ export const pipelineCreateSchema = z
     tags: z.array(z.string().max(50)).optional(),
     updatedAt: z.string().max(50).optional(),
     followUpAt: z.string().max(50).optional(),
+    // Accepted for backwards compatibility but deliberately ignored by the server.
+    ownerId: z.string().max(255).optional(),
   })
   .strict();
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { UserAccount, UserRole } from '../types';
+import { BrandName } from './BrandName';
 import { neonAuthConfigured, registerWithEmail, requestPasswordReset, resetPassword, signInWithNeon, startSmsRegistration, verifySmsRegistration } from '../services/neonAuth';
 import { 
   ShieldCheck, 
@@ -68,8 +69,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get('token') && params.has('reset-password')) setMode('reset');
-    else if (params.get('error') && params.has('reset-password')) {
+    const token = params.get('token');
+    const errorCode = params.get('error') || params.get('error_description');
+    if (token) setMode('reset');
+    else if (errorCode && params.has('reset-password')) {
       setMode('forgot');
       setError('That reset link is invalid or expired. Request a new one.');
     }
@@ -137,7 +140,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </div>
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              Sign in to EstateWatch
+              Sign in to <BrandName />
             </h2>
             <p className="text-xs text-slate-400">
               Manage your alerts and saved estate opportunities in one place
