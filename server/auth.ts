@@ -4,12 +4,14 @@ import type { Request, Response } from 'express';
 import { query } from './db.js';
 
 const COOKIE_NAME = 'estatewatch_session';
-const DEFAULT_APP_URL = 'https://estatewatch-ivory.vercel.app';
+const DEFAULT_APP_URL = 'https://estatewatch.marketdirect.co.za';
+const PRODUCTION_APP_URL = 'https://estatewatch.marketdirect.co.za';
 const adminEmail = () => (process.env.ADMIN_EMAIL || 'support@marketdirect.co.za').toLowerCase();
 export const roleForEmail = (email: string): AppSession['role'] => email.toLowerCase() === adminEmail() ? 'admin' : 'user';
 
 export function applicationUrl() {
   const configured = String(process.env.APP_URL || '').trim();
+  if (process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production') return PRODUCTION_APP_URL;
   try {
     const url = new URL(configured || DEFAULT_APP_URL);
     if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Unsupported application URL protocol');

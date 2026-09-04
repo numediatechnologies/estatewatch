@@ -168,13 +168,14 @@ export async function updateAlert(alert: AlertCriteria): Promise<AlertCriteria |
   }
 }
 
-export async function toggleAlert(id: string): Promise<boolean> {
+export async function toggleAlert(id: string): Promise<{ isActive: boolean; deliveryState?: 'active' | 'paused' } | null> {
   try {
-    const res = await apiFetch(`${API_BASE}/alerts/${id}/toggle`, { method: 'PATCH' });
-    return res.ok;
+    const res = await apiFetch(`${API_BASE}/alerts/${encodeURIComponent(id)}/toggle`, { method: 'PATCH' });
+    if (!res.ok) return null;
+    return await res.json();
   } catch (err) {
     console.error('Error toggling alert:', err);
-    return false;
+    return null;
   }
 }
 

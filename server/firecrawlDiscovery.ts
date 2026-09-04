@@ -16,7 +16,7 @@ export interface FirecrawlDiscoveryClient {
   }>;
 }
 
-export interface DiscoveryOptions { now?: Date; maxPages?: number }
+export interface DiscoveryOptions { now?: Date; maxPages?: number; deadlineAt?: number }
 export interface ResilienceOptions {
   attempts?: number;
   baseDelayMs?: number;
@@ -146,6 +146,11 @@ export async function discoverGazettes(client: FirecrawlDiscoveryClient, options
 
   for (const year of years) {
     for (let page = 1; page <= maxPages && !shouldStop; page++) {
+      if (options.deadlineAt && Date.now() >= options.deadlineAt) {
+        warnings.push('Stopped discovery early to finish within the serverless time limit');
+        shouldStop = true;
+        break;
+      }
       const url = buildGazetteUrl(year, page);
       const response = await client.scrape(url, { formats: ['markdown'], onlyMainContent: true });
       pagesInspected++;

@@ -217,29 +217,29 @@ export function App() {
 
   // Alert Rules Handlers
   const handleCreateAlert = async (newAlert: AlertCriteria) => {
-    if (!currentUser) { setShowLoginModal(true); return false; }
+    if (!currentUser) { setShowLoginModal(true); return null; }
     const saved = await createAlertApi(newAlert);
     if (saved) {
       setAlerts(prev => [saved, ...prev]);
-      return true;
+      return saved;
     }
-    return false;
+    return null;
   };
 
   const handleUpdateAlert = async (updatedAlert: AlertCriteria) => {
-    if (!currentUser) { setShowLoginModal(true); return false; }
+    if (!currentUser) { setShowLoginModal(true); return null; }
     const saved = await updateAlertApi(updatedAlert);
-    if (!saved) return false;
+    if (!saved) return null;
     setAlerts(prev => prev.map(alert => alert.id === saved.id ? saved : alert));
-    return true;
+    return saved;
   };
 
   const handleToggleAlert = async (id: string) => {
     const current = alerts.find(a => a.id === id);
-    if (!current) return false;
-    const ok = await toggleAlertApi(id);
-    if (ok) setAlerts(prev => prev.map(a => a.id === id ? { ...a, isActive: !a.isActive } : a));
-    return ok;
+    if (!current) return null;
+    const saved = await toggleAlertApi(id);
+    if (saved) setAlerts(prev => prev.map(a => a.id === id ? { ...a, isActive: saved.isActive, deliveryState: saved.deliveryState } : a));
+    return saved;
   };
 
   const handleDeleteAlert = async (id: string) => {

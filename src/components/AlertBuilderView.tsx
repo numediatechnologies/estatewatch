@@ -4,9 +4,9 @@ import { BellRing, CheckCircle2, Edit3, Mail, Plus, ShieldCheck, Smartphone, Tra
 
 interface AlertBuilderViewProps {
   alerts: AlertCriteria[];
-  onCreateAlert: (newAlert: AlertCriteria) => Promise<boolean>;
-  onUpdateAlert: (alert: AlertCriteria) => Promise<boolean>;
-  onToggleAlert: (id: string) => Promise<boolean>;
+  onCreateAlert: (newAlert: AlertCriteria) => Promise<AlertCriteria | null>;
+  onUpdateAlert: (alert: AlertCriteria) => Promise<AlertCriteria | null>;
+  onToggleAlert: (id: string) => Promise<{ isActive: boolean; deliveryState?: 'active' | 'paused' } | null>;
   onDeleteAlert: (id: string) => Promise<boolean>;
   defaultRecipientEmail?: string;
   defaultOwnerName?: string;
@@ -30,6 +30,9 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
   const [recipientPhone, setRecipientPhone] = useState('');
   const [preserveExistingPhone, setPreserveExistingPhone] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [savedState, setSavedState] = useState<'active' | 'paused'>('active');
+  const [saving, setSaving] = useState(false);
+  const [togglingAlertId, setTogglingAlertId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [sortBy, setSortBy] = useState<'active' | 'name' | 'created' | 'matches'>('active');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -106,14 +109,25 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
       recipientPhone: smsEnabled ? (recipientPhone.trim() || (preserveExistingPhone ? existing?.recipientPhone : undefined)) : undefined,
       ownerName: defaultOwnerName || undefined,
     };
-    const ok = editingAlertId ? await onUpdateAlert(payload) : await onCreateAlert(payload);
-    if (!ok) {
+    setSaving(true);
+    const saved = editingAlertId ? await onUpdateAlert(payload) : await onCreateAlert(payload);
+    setSaving(false);
+    if (!saved) {
       setError('We could not save this alert. Nothing was changed. Please try again.');
       return;
     }
+    setSavedState(saved.deliveryState === 'paused' || !saved.isActive ? 'paused' : 'active');
     resetForm();
     setSavedSuccess(true);
     window.setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
+  const handleToggle = async (alert: AlertCriteria) => {
+    setError('');
+    setTogglingAlertId(alert.id);
+    const saved = await onToggleAlert(alert.id);
+    setTogglingAlertId(null);
+    if (!saved) setError(`We could not ${alert.isActive ? 'pause' : 'activate'} “${alert.name}”. Nothing was changed.`);
   };
 
   const handleDelete = async (alert: AlertCriteria) => {
@@ -148,6 +162,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
           </label>
         </div>
         <label className="text-xs font-bold text-slate-300 block">South African ID number <span className="text-amber-400">(highest priority)</span>
+          {editingAlertId && alerts.find(alert => alert.id === editingAlertId)?.idNumberMatchMasked && <span className="mt-1 block rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">Saved exact ID: <strong>{alerts.find(alert => alert.id === editingAlertId)?.idNumberMatchMasked}</strong>. The full number is never shown; leave the field blank to keep it.</span>}
           <input inputMode="numeric" autoComplete="off" value={idNumberMatch} onChange={(event) => setIdNumberMatch(event.target.value.replace(/\D/g, '').slice(0, 13))} placeholder="13 digits" pattern="[0-9]{13}" className="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-amber-500" />
           <span className="block mt-1 font-normal text-slate-500">Optional. An exact ID match takes priority. We do not store or display the full number.{editingAlertId && alerts.find(alert => alert.id === editingAlertId)?.idNumberMatchMasked ? ' Leave blank to keep the existing exact ID match.' : ''}</span>
         </label>
@@ -172,8 +187,8 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
           {idNumberMatch ? <>Email me only for the exact ID <strong className="text-white">{idNumberMatch.slice(0, 6)}****{idNumberMatch.slice(-3)}</strong>. This overrides surname and province.</> : <>Email me when a newly ingested J193 record {surnameMatch.trim() ? <>contains surname <strong className="text-white">{surnameMatch.trim()}</strong></> : 'matches any surname'} in <strong className="text-white">{selectedProvinces.join(', ') || 'any province'}</strong>.</>}
         </div>
         <div className="flex items-center justify-between gap-3">
-          {savedSuccess ? <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />Great! Your alert is active.</span> : <span />}
-          <button type="submit" className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2"><>{editingAlertId ? <Edit3 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}</>{editingAlertId ? 'Save Changes' : 'Start Alert'}</button>
+          {savedSuccess ? <span className={`text-xs font-bold flex items-center gap-1.5 ${savedState === 'active' ? 'text-emerald-400' : 'text-amber-300'}`}><CheckCircle2 className="w-4 h-4" />{savedState === 'active' ? 'Your alert is active.' : 'Saved. Activate delivery with a subscription.'}</span> : <span />}
+          <button type="submit" disabled={saving} className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2">{saving ? 'Saving…' : <><>{editingAlertId ? <Edit3 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}</>{editingAlertId ? 'Save Changes' : 'Start Alert'}</>}</button>
         </div>
         {error && <p role="alert" className="text-xs text-rose-400 font-semibold">{error}</p>}
       </form>
@@ -181,7 +196,7 @@ export const AlertBuilderView: React.FC<AlertBuilderViewProps> = ({
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-2"><h3 className="font-bold text-sm text-white flex items-center gap-2"><BellRing className="w-4 h-4 text-amber-400" />Your alerts ({alerts.length})</h3><div className="flex items-center gap-1"><select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[10px] text-slate-300"><option value="active">Active first</option><option value="name">Name</option><option value="created">Created</option><option value="matches">Matches</option></select><button type="button" onClick={() => setSortDirection(current => current === 'asc' ? 'desc' : 'asc')} className="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[10px] text-slate-300">{sortDirection === 'asc' ? '↑' : '↓'}</button></div></div>
         {sortedAlerts.map((alert) => <div key={alert.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-          <div className="flex items-start justify-between gap-2"><div><h4 className="font-bold text-xs text-white">{alert.name}</h4><span className="text-[10px] text-slate-500">Created {alert.createdAt}</span></div><button onClick={() => void onToggleAlert(alert.id)} className={`px-2 py-0.5 rounded text-[10px] font-bold ${alert.isActive ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-500'}`}>{alert.isActive ? 'ACTIVE' : 'PAUSED'}</button></div>
+          <div className="flex items-start justify-between gap-2"><div><h4 className="font-bold text-xs text-white">{alert.name}</h4><span className="text-[10px] text-slate-500">Created {alert.createdAt}</span></div><button onClick={() => void handleToggle(alert)} disabled={togglingAlertId === alert.id} className={`px-2 py-0.5 rounded text-[10px] font-bold disabled:cursor-wait disabled:opacity-60 ${alert.isActive ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-slate-800 text-slate-500'}`}>{togglingAlertId === alert.id ? 'SAVING…' : alert.isActive ? 'ACTIVE' : 'PAUSED'}</button></div>
           <div className="text-[11px] text-slate-400 space-y-1">
             {alert.idNumberMatchMasked && <div>Exact ID: <strong className="text-amber-300">{alert.idNumberMatchMasked}</strong> (priority)</div>}
             <div>Surname: <strong className="text-slate-200">{alert.surnameMatch || 'Any'}</strong></div>

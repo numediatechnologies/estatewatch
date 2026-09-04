@@ -21,6 +21,7 @@ import { buildMarketDirectContactPayload, sendContactToMarketDirectCrm } from '.
 import { ALLOWED_CONTACT_ENQUIRIES, applySecurityHeaders, CONTACT_FIELD_LIMITS, consumeContactRateLimit } from './security.js';
 import { recordAuditEvent, maskedPhone } from './audit.js';
 import { getDataQualityReport } from './estateRetention.js';
+import { gazetteIngestSlotStart, missedRunDetail, SLOT_RUN_QUERY } from './ingestionWatchdog.js';
 import { getEntitlement, getUsage } from './entitlements.js';
 import { BANK_PAYMENT_DETAILS, PLAN_PRICES_CENTS, createCheckoutFields, payfastEndpoint, verifySignature } from './payments.js';
 import { billingDocumentHtml, createBillingDocument, createInvoiceForPayment, renderBillingPdf } from './billingDocuments.js';
@@ -363,15 +364,10 @@ application.get('/api/cron/ingest', requireCron, async (_req, res) => {
 
 application.get('/api/cron/watchdog', requireCron, async (_req, res) => {
   try {
-    const now = new Date();
-    const hour = now.getUTCHours();
-    const slotStart = new Date(now);
-    if (hour < 10) slotStart.setUTCHours(4, 0, 0, 0);
-    else slotStart.setUTCHours(11, 0, 0, 0);
-    const recent = await query(`SELECT ingestion_id, status, completed_at FROM ingestion_runs
-      WHERE status='completed' AND completed_at >= $1 ORDER BY completed_at DESC LIMIT 1`, [slotStart.toISOString()]);
+    const slotStart = gazetteIngestSlotStart(new Date());
+    const recent = await query(SLOT_RUN_QUERY, [slotStart.toISOString()]);
     if (recent.rows[0]) return res.json({ success: true, status: 'healthy', run: recent.rows[0] });
-    const detail = `No completed Gazette ingestion was recorded after ${slotStart.toISOString()}. The scheduled run may have been missed or failed before completion.`;
+    const detail = missedRunDetail(slotStart);
     const incident = await notifyAdminOfIncident({ type: 'cron_failure', severity: 'critical', summary: 'Gazette ingestion watchdog detected a missed run', detail, dedupeKey: `watchdog:${slotStart.toISOString().slice(0, 13)}` });
     return res.status(502).json({ success: false, status: 'missed', detail, incident: { id: incident.incident?.id, operatorNotified: incident.email.success, provider: incident.email.success ? incident.email.provider : undefined, attempts: incident.email.attempts || [] } });
   } catch (error: any) {

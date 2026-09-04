@@ -46,4 +46,16 @@ describe('application authentication', () => {
       token: 'valid-reset-token', newPassword: 'new-secure-password',
     }, 'https://estatewatch.marketdirect.co.za');
   });
+
+  it('never uses a temporary Vercel URL for production auth redirects', async () => {
+    process.env.NEON_AUTH_BASE_URL = 'https://auth.example.test';
+    process.env.APP_URL = 'https://estatewatch-preview.vercel.app';
+    process.env.VERCEL_ENV = 'production';
+    const transportMock = vi.fn().mockResolvedValue({ status: 200, data: { status: true } });
+    await requestPasswordResetWithNeon('owner@example.com', transportMock);
+    expect(transportMock).toHaveBeenCalledWith('https://auth.example.test/request-password-reset', {
+      email: 'owner@example.com', redirectTo: 'https://estatewatch.marketdirect.co.za/?reset-password=1',
+    }, 'https://estatewatch.marketdirect.co.za');
+    delete process.env.VERCEL_ENV;
+  });
 });

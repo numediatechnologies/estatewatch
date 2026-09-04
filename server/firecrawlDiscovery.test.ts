@@ -62,6 +62,17 @@ describe('Firecrawl J193 discovery', () => {
     expect(result.warnings[0]).toContain('inspected');
   });
 
+  it('stops paging when the serverless deadline has passed', async () => {
+    const scrape = vi.fn().mockResolvedValue(scraped(row('2026-08-01', 'a')));
+    const result = await discoverGazettes({ scrape } as FirecrawlDiscoveryClient, {
+      now: new Date('2026-08-09T00:00:00Z'),
+      maxPages: 5,
+      deadlineAt: Date.now() - 1,
+    });
+    expect(scrape).not.toHaveBeenCalled();
+    expect(result.warnings[0]).toContain('serverless time limit');
+  });
+
   it('returns one actionable error when both discovery paths fail', async () => {
     const resilient = createResilientDiscoveryClient(
       { scrape: vi.fn().mockRejectedValue(new Error('network timeout')) },
