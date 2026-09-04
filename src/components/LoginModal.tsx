@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserAccount, UserRole } from '../types';
 import { BrandName } from './BrandName';
-import { neonAuthConfigured, registerWithEmail, requestPasswordReset, resetPassword, signInWithNeon, startSmsRegistration, verifySmsRegistration } from '../services/neonAuth';
+import { hasPasswordResetLink, neonAuthConfigured, passwordResetToken, registerWithEmail, requestPasswordReset, resetPassword, signInWithNeon, startSmsRegistration, verifySmsRegistration } from '../services/neonAuth';
 import { 
   ShieldCheck, 
   Lock, 
@@ -69,9 +69,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
+    const token = passwordResetToken(window.location);
     const errorCode = params.get('error') || params.get('error_description');
-    if (token) setMode('reset');
+    if (token && hasPasswordResetLink(window.location)) setMode('reset');
     else if (errorCode && params.has('reset-password')) {
       setMode('forgot');
       setError('That reset link is invalid or expired. Request a new one.');
@@ -91,7 +91,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       }
       if (mode === 'reset') {
         if (password !== confirmPassword) throw new Error('Passwords do not match');
-        const token = new URLSearchParams(window.location.search).get('token');
+        const token = passwordResetToken(window.location);
         if (!token) throw new Error('The reset link is invalid or expired');
         const result = await resetPassword(token, password);
         window.history.replaceState({}, '', window.location.pathname);

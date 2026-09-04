@@ -43,7 +43,7 @@ import { BillingView } from './components/BillingView';
 import { EstateDetailModal } from './components/EstateDetailModal';
 import { SimulateMatchModal } from './components/SimulateMatchModal';
 import { LoginModal } from './components/LoginModal';
-import { restoreNeonSession, signOutFromNeon } from './services/neonAuth';
+import { hasPasswordResetLink, restoreNeonSession, signOutFromNeon } from './services/neonAuth';
 
 import { Bot, Check, X, Bell, MessageSquare, Zap, Database, Mail } from 'lucide-react';
 import { UserAccount } from './types';
@@ -63,7 +63,7 @@ export function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.has('reset-password') || params.has('token') || params.has('error')) setShowLoginModal(true);
+    if (hasPasswordResetLink(window.location) || params.has('error')) setShowLoginModal(true);
     void restoreNeonSession().then((user) => {
       if (user) {
         setCurrentUser({ id: user.id, email: user.email, name: user.name, role: user.role, subscriptionActive: user.subscriptionActive, userPersona: 'attorney', companyName: user.companyName, phoneMasked: user.phoneMasked, phoneVerified: user.phoneVerified, subscriptionStatus: user.subscriptionStatus, subscriptionExpiresAt: user.subscriptionExpiresAt });

@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { SendMailClient } from 'zeptomail';
+import { applicationUrl } from './auth.js';
 
 // Resend and ZeptoMail are restricted to EstateWatch transactional/operational
 // messages. Authentication verification and password-reset emails stay with
@@ -13,7 +14,7 @@ export interface EmailParams {
 }
 
 export function estateDetailUrl(estateId: string) {
-  const url = new URL(process.env.APP_URL || 'http://localhost:3000');
+  const url = new URL(applicationUrl());
   url.searchParams.set('estate', estateId);
   return url.toString();
 }
@@ -130,7 +131,7 @@ export async function sendIngestionFailureEmail(errorMessage: string) {
   const to = process.env.INGESTION_INCIDENT_EMAIL || process.env.ADMIN_EMAIL;
   if (!to) return { success: false as const, error: 'INGESTION_INCIDENT_EMAIL or ADMIN_EMAIL not configured', attempts: [], providerErrors: [] };
   const occurredAt = new Date().toISOString();
-  const dashboardUrl = process.env.APP_URL || 'https://estatewatch.marketdirect.co.za';
+  const dashboardUrl = applicationUrl();
   const result = await sendEmail({
     from: defaultSender(), to,
     subject: 'Action needed: EstateWatch Gazette run failed',
