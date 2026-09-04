@@ -67,10 +67,10 @@ Server-only:
 DATABASE_URL                 Pooled PostgreSQL connection string
 FIRECRAWL_API_KEY            Firecrawl server API key
 RESEND_API_KEY               Resend server API key
-RESEND_FROM                  e.g. EstateWatch <alerts@tenders.marketdirect.co.za>
+RESEND_FROM                  e.g. Support Team <support@marketdirect.co.za>
 ZEPTOMAIL_TOKEN              ZeptoMail Send Mail Token (server-only fallback)
 ZEPTOMAIL_FROM               e.g. EstateWatch <noreply@marketdirect.co.za>
-EMAIL_FROM                   optional common sender override for both providers
+EMAIL_FROM                   optional common sender override for both providers (default: Support Team <support@marketdirect.co.za>)
 EMAIL_PROVIDER               auto (default), resend, or zeptomail
 LEADS_CONTACT_WEBHOOK_URL    MarketDirect leads CRM contact-ingest endpoint
 LEADS_CONTACT_WEBHOOK_KEY    shared secret for the CRM contact-ingest endpoint

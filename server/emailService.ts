@@ -75,7 +75,7 @@ function splitSender(value: string) {
 async function sendWithResend(message: Message) {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { data, error } = await resend.emails.send({
-    from: message.from || process.env.RESEND_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>',
+    from: message.from || process.env.RESEND_FROM || 'Support Team <support@marketdirect.co.za>',
     to: [message.to], subject: message.subject, html: message.html, text: message.text,
     ...(message.replyTo ? { replyTo: message.replyTo } : {}),
     ...(message.referenceId ? { headers: { 'X-Entity-Ref-ID': message.referenceId } } : {}),
@@ -86,7 +86,7 @@ async function sendWithResend(message: Message) {
 }
 
 async function sendWithZeptoMail(message: Message) {
-  const sender = splitSender(message.from || process.env.ZEPTOMAIL_FROM || 'noreply@marketdirect.co.za');
+  const sender = splitSender(message.from || process.env.ZEPTOMAIL_FROM || 'Support Team <support@marketdirect.co.za>');
   const client = new SendMailClient({ url: 'https://api.zeptomail.com/v1.1/email', token: process.env.ZEPTOMAIL_TOKEN as string });
   const response = await client.sendMail({
     from: sender,
@@ -119,7 +119,7 @@ async function sendEmail(message: Message): Promise<EmailResult> {
 }
 
 function defaultSender() {
-  return process.env.EMAIL_FROM || process.env.RESEND_FROM || process.env.ZEPTOMAIL_FROM || 'EstateWatch <alerts@tenders.marketdirect.co.za>';
+  return process.env.EMAIL_FROM || process.env.RESEND_FROM || process.env.ZEPTOMAIL_FROM || 'Support Team <support@marketdirect.co.za>';
 }
 
 export async function sendEstateAlertEmail(params: EmailParams) {
