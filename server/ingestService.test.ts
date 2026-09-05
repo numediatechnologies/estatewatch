@@ -16,7 +16,7 @@ vi.mock('./estateRetention.js', async (importOriginal) => {
   return { ...actual, runRetentionMaintenance: retentionMock };
 });
 
-import { runIngestion, shouldFlagIngestion } from './ingestService.js';
+import { gazetteNumberFromSourceUrl, runIngestion, shouldFlagIngestion } from './ingestService.js';
 import { emptyIngestResult } from './ingestTypes.js';
 
 function queryResult(sql: string) {
@@ -84,6 +84,16 @@ describe('runIngestion run recording', () => {
     expect(result.errors[0].error).toContain('out of time');
     const persist = queryMock.mock.calls.find((call) => String(call[0]).includes('UPDATE ingestion_runs SET status='));
     expect(persist?.[1]?.[0]).toBe('flagged');
+  });
+});
+
+describe('Gazette source identity', () => {
+  it('derives a bounded stable Gazette number from the official PDF URL', () => {
+    expect(gazetteNumberFromSourceUrl('https://archive.gazettes.africa/archive/za/2026/za-government-gazette-legal-notices-a-dated-2026-06-05-no-54773-part-1.pdf')).toBe('54773 part 1');
+  });
+
+  it('rejects source URLs without an official Gazette number', () => {
+    expect(() => gazetteNumberFromSourceUrl('https://archive.gazettes.africa/archive/za/2026/notice.pdf')).toThrow('Could not determine Gazette number');
   });
 });
 

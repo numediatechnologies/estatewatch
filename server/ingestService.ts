@@ -109,14 +109,22 @@ function buildManualGazetteItem(sourceUrl: string): GazetteItem {
   };
 }
 
-function gazetteNumber(title: string): string {
-  return title.match(/number\s+(.+)$/i)?.[1] || title;
+export function gazetteNumberFromSourceUrl(sourceUrl: string): string {
+  const filename = decodeURIComponent(new URL(sourceUrl).pathname.split('/').at(-1) || '');
+  const match = filename.match(/-no-(\d+(?:-part-\d+)?)\.pdf$/i);
+  if (!match) throw new Error(`Could not determine Gazette number from ${sourceUrl}`);
+  return match[1].replace(/-/g, ' ');
+}
+
+function gazetteNumber(gazette: GazetteItem): string {
+  return gazetteNumberFromSourceUrl(gazette.downloadUrl);
 }
 
 async function processGazette(gazette: GazetteItem, result: IngestResult) {
-  const issueId = `gazette-${gazette.datePublished}-${gazetteNumber(gazette.title).replace(/\s+/g, '-')}`;
   const existing = await query('SELECT status FROM gazette_issues WHERE source_url=$1', [gazette.downloadUrl]);
   if (existing.rowCount && existing.rows[0].status === 'completed') { result.stats.duplicatesSkipped++; return; }
+  const number = gazetteNumber(gazette);
+  const issueId = `gazette-${gazette.datePublished}-${number.replace(/\s+/g, '-')}`;
   await query(`INSERT INTO gazette_issues(id,title,published_date,source_url,status) VALUES($1,$2,$3,$4,'processing') ON CONFLICT(source_url) DO UPDATE SET status='processing',error=NULL`, [issueId, gazette.title, gazette.datePublished, gazette.downloadUrl]);
   let accepted = 0; let rejected = 0;
   let issueDuplicates = 0; let issueMissingRequired = 0;
@@ -141,7 +149,7 @@ async function processGazette(gazette: GazetteItem, result: IngestResult) {
     const alerts = await loadAlerts();
     for (const record of records) {
       if (!isWithinLiveWindow(gazette.datePublished)) { rejected++; result.stats.rejected++; continue; }
-      const parsed = parseJ193Record(record.text, { url: gazette.downloadUrl, publishedDate: gazette.datePublished, gazetteNumber: gazetteNumber(gazette.title), page: record.page });
+      const parsed = parseJ193Record(record.text, { url: gazette.downloadUrl, publishedDate: gazette.datePublished, gazetteNumber: number, page: record.page });
       if (!parsed.estate || !parsed.estate.deceasedName || !parsed.estate.estateNumber || !parsed.estate.sourceUrl || !parsed.estate.gazetteDate || !parsed.estate.parserVersion) { rejected++; result.stats.rejected++; result.stats.missingRequired++; issueMissingRequired++; continue; }
       const canonicalNumber = canonicalEstateNumber(parsed.estate.estateNumber);
       const duplicate = await query('SELECT id FROM estates WHERE source_id=$1 OR canonical_estate_number=$2 LIMIT 1', [parsed.estate.sourceId, canonicalNumber]);

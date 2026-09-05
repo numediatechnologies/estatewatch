@@ -10,14 +10,14 @@ export async function initializeDatabase() {
     await query(`
       CREATE TABLE IF NOT EXISTS estates (
         id VARCHAR(100) PRIMARY KEY,
-        source_id VARCHAR(100),
+        source_id TEXT,
         deceased_name VARCHAR(255) NOT NULL,
         id_number_masked VARCHAR(50),
         date_of_death VARCHAR(50),
         gazette_date VARCHAR(50),
         province VARCHAR(100),
-        district VARCHAR(100),
-        master_office VARCHAR(100),
+        district TEXT,
+        master_office TEXT,
         estate_number VARCHAR(100),
         executor_name VARCHAR(255),
         executor_contact VARCHAR(100),
@@ -38,7 +38,11 @@ export async function initializeDatabase() {
       ALTER TABLE estates ADD COLUMN IF NOT EXISTS spouse_details TEXT;
       ALTER TABLE estates ADD COLUMN IF NOT EXISTS executor_address TEXT;
       ALTER TABLE estates ADD COLUMN IF NOT EXISTS claim_period_days INT;
-      ALTER TABLE estates ADD COLUMN IF NOT EXISTS gazette_number VARCHAR(100);
+      ALTER TABLE estates ADD COLUMN IF NOT EXISTS gazette_number TEXT;
+      ALTER TABLE estates ALTER COLUMN source_id TYPE TEXT;
+      ALTER TABLE estates ALTER COLUMN district TYPE TEXT;
+      ALTER TABLE estates ALTER COLUMN master_office TYPE TEXT;
+      ALTER TABLE estates ALTER COLUMN gazette_number TYPE TEXT;
       ALTER TABLE estates ADD COLUMN IF NOT EXISTS gazette_page INT;
       ALTER TABLE estates ADD COLUMN IF NOT EXISTS source_url TEXT;
       ALTER TABLE estates ADD COLUMN IF NOT EXISTS parser_version VARCHAR(50);
